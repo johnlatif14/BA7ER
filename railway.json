@@ -23,17 +23,11 @@
     }
   ],
   "variables": {
+    "NODE_ENV": "production",
+    "PORT": "3000",
     "MONGODB_URI": {
       "description": "رابط اتصال MongoDB",
       "required": true
-    },
-    "JWT_SECRET": {
-      "description": "مفتاح تشفير JWT",
-      "required": true
-    },
-    "SMTP_USER": {
-      "description": "بريد SMTP للإشعارات",
-      "required": false
     }
   }
 }
