@@ -139,17 +139,13 @@ function isAdmin(req, res, next) {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
-  if (!username || !password) {
-    return res.status(400).json({ success: false, error: 'اسم المستخدم وكلمة المرور مطلوبان' });
-  }
-
   if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
     req.session.isAdmin = true;
     req.session.user = { username, role: 'admin' };
-    return res.json({ success: true, redirect: '/dashboard.html' });
+    return res.redirect('/dashboard.html'); // تحويل مباشر بدلاً من JSON
   }
   
-  res.status(401).json({ success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+  res.redirect('/login.html?error=invalid_credentials'); // إعادة توجيه مع رسالة خطأ
 });
 
 app.post('/api/logout', (req, res) => {
