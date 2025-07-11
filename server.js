@@ -24,34 +24,23 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: 'لقد تجاوزت الحد المسموح من الطلبات، يرجى المحاولة لاحقاً'
-});
-app.use(limiter);
-
-// Session Configuration
+// Session
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+  cookie: { secure: false }
 }));
 
-// CSRF Protection
-const csrfProtection = csrf({ cookie: true });
+// CSRF
+const csrfProtection = csrf();
 app.use(csrfProtection);
 app.use((req, res, next) => {
   res.locals.csrfToken = req.csrfToken();
   next();
 });
 
-// Database Setup
+// Database
 const dbPath = path.join(__dirname, 'db.json');
 const initializeDB = () => {
   if (!fs.existsSync(dbPath)) {
@@ -73,12 +62,22 @@ const isAdmin = (req, res, next) => {
   res.redirect('/login.html');
 };
 
-// API Routes
+// SMTP Transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+});
+
+// Routes
 app.get('/api/csrf-token', (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
 
-// Auth Routes
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
@@ -90,18 +89,32 @@ app.post('/api/login', (req, res) => {
 
 app.post('/api/logout', (req, res) => {
   req.session.destroy(err => {
-    if (err) {
-      return res.status(500).json({ success: false });
-    }
-    res.clearCookie('connect.sid');
+    if (err) return res.status(500).json({ success: false });
     res.json({ success: true, redirect: '/' });
   });
 });
 
-// Products API
-app.get('/api/products', (req, res) => {
-  res.json(db.products);
+// Email API
+app.post('/api/send-email', isAdmin, async (req, res) => {
+  try {
+    const { to, subject, text } = req.body;
+    
+    await transporter.sendMail({
+      from: `"متجر 𝐵𝒜𝟩𝐸𝑅" <${process.env.SMTP_USER}>`,
+      to,
+      subject,
+      text
+    });
+
+    res.json({ success: true, message: 'تم إرسال البريد بنجاح' });
+  } catch (error) {
+    console.error('SMTP Error:', error);
+    res.status(500).json({ success: false, message: 'فشل إرسال البريد' });
+  }
 });
+
+// Products API
+app.get('/api/products', (req, res) => res.json(db.products));
 
 app.post('/api/products', multer({ dest: 'uploads/' }).single('image'), (req, res) => {
   const { name, price, sizes, stock } = req.body;
@@ -121,9 +134,7 @@ app.post('/api/products', multer({ dest: 'uploads/' }).single('image'), (req, re
 });
 
 // Orders API
-app.get('/api/orders', isAdmin, (req, res) => {
-  res.json(db.orders);
-});
+app.get('/api/orders', isAdmin, (req, res) => res.json(db.orders));
 
 app.post('/api/orders', multer({ dest: 'uploads/' }).single('paymentProof'), (req, res) => {
   const order = {
@@ -148,49 +159,13 @@ app.put('/api/orders/:id', isAdmin, (req, res) => {
   res.status(404).json({ success: false });
 });
 
-// Email API
-app.post('/api/send-email', isAdmin, async (req, res) => {
-  try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-
-    await transporter.sendMail({
-      from: `"متجر 𝐵𝒜𝟩𝐸𝑅" <${process.env.EMAIL_USER}>`,
-      ...req.body
-    });
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Email error:', error);
-    res.status(500).json({ success: false });
-  }
-});
-
-// Serve HTML Files
-app.get(['/', '/shop.html', '/contact.html', '/login.html', '/dashboard.html'], (req, res) => {
-  const filePath = req.path === '/' ? '/index.html' : req.path;
-  res.sendFile(path.join(__dirname, 'public', filePath));
-});
-
-// Error Handling
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('حدث خطأ في الخادم');
-});
-
-// Socket.io
-io.on('connection', (socket) => {
-  console.log('Client connected');
-  socket.on('disconnect', () => console.log('Client disconnected'));
+// Serve HTML
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', req.path));
 });
 
 // Start Server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
