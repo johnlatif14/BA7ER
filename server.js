@@ -1,171 +1,200 @@
+require('dotenv').config();
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const multer = require('multer');
-const nodemailer = require('nodemailer');
 const session = require('express-session');
-const csrf = require('csurf');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const xss = require('xss-clean');
+const path = require('path');
+const fs = require('fs');
 const http = require('http');
-const socketIo = require('socket.io');
-require('dotenv').config();
+const multer = require('multer');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
 
-// Middlewares
-app.use(helmet());
-app.use(xss());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// =============================================
+// 1. الإعدادات الأساسية والخيارات
+// =============================================
 
-// Session
+// تهيئة multer لرفع الملفات
+const upload = multer({ 
+  dest: 'uploads/',
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB كحد أقصى
+});
+
+// تهيئة nodemailer لإرسال البريد
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.example.com',
+  port: process.env.SMTP_PORT || 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER || 'user@example.com',
+    pass: process.env.SMTP_PASS || 'password'
+  }
+});
+
+// =============================================
+// 2. الميدلوير الأساسية
+// =============================================
+
+app.use(helmet()); // حماية التطبيق
+app.use(express.json()); // لمعالجة طلبات JSON
+app.use(express.urlencoded({ extended: true })); // لمعالجة بيانات النماذج
+app.use(express.static(path.join(__dirname, 'public'))); // ملفات ثابتة
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // ملفات مرفوعة
+
+// إعداد الجلسات
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: process.env.SESSION_SECRET || 'your-secret-key-here',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false }
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 ساعة
+  }
 }));
 
-// CSRF
-const csrfProtection = csrf();
-app.use(csrfProtection);
-app.use((req, res, next) => {
-  res.locals.csrfToken = req.csrfToken();
-  next();
+// تحديد معدل الطلبات للوقاية من الهجمات
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 دقيقة
+  max: 100 // 100 طلب لكل IP
 });
+app.use(limiter);
 
-// Database
+// =============================================
+// 3. وظائف مساعدة وقاعدة بيانات مؤقتة
+// =============================================
+
+// مسار قاعدة البيانات
 const dbPath = path.join(__dirname, 'db.json');
-const initializeDB = () => {
-  if (!fs.existsSync(dbPath)) {
-    fs.writeFileSync(dbPath, JSON.stringify({
-      products: [],
-      orders: [],
-      inquiries: [],
-      reviews: []
-    }, null, 2));
+
+// قراءة قاعدة البيانات أو إنشائها إذا لم تكن موجودة
+function getDB() {
+  try {
+    return JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+  } catch (err) {
+    return { products: [], orders: [], users: [] };
   }
-  return JSON.parse(fs.readFileSync(dbPath));
-};
-const db = initializeDB();
-const saveDB = () => fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+}
 
-// Auth Middleware
-const isAdmin = (req, res, next) => {
-  if (req.session.isAdmin) return next();
-  res.redirect('/login.html');
-};
+// حفظ التغييرات في قاعدة البيانات
+function saveDB(data) {
+  fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+}
 
-// SMTP Transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: true,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+// ميدلوير للتحقق من صلاحيات المدير
+function isAdmin(req, res, next) {
+  if (req.session.isAdmin) {
+    next();
+  } else {
+    res.status(403).json({ success: false, error: 'غير مصرح بالوصول' });
   }
-});
+}
 
-// Routes
-app.get('/api/csrf-token', (req, res) => {
-  res.json({ csrfToken: req.csrfToken() });
-});
+// =============================================
+// 4. نقاط النهاية (Routes)
+// =============================================
 
+// تسجيل الدخول
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
+  const db = getDB();
+
+  // التحقق من بيانات الدخول
   if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
     req.session.isAdmin = true;
-    return res.json({ success: true, redirect: '/dashboard.html' });
+    req.session.user = { username, role: 'admin' };
+    return res.json({ success: true, redirect: 'dashboard.html' });
   }
-  res.status(401).json({ success: false, message: 'بيانات الدخول غير صحيحة' });
+  
+  res.status(401).json({ success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
 });
 
+// تسجيل الخروج
 app.post('/api/logout', (req, res) => {
   req.session.destroy(err => {
-    if (err) return res.status(500).json({ success: false });
-    res.json({ success: true, redirect: '/' });
+    if (err) {
+      return res.status(500).json({ success: false, error: 'خطأ في تسجيل الخروج' });
+    }
+    res.clearCookie('connect.sid');
+    res.json({ success: true, redirect: '/login.html' });
   });
 });
 
-// Email API
+// إدارة المنتجات
+app.get('/api/products', (req, res) => {
+  const db = getDB();
+  res.json(db.products);
+});
+
+app.post('/api/products', upload.single('image'), (req, res) => {
+  const db = getDB();
+  const product = {
+    id: Date.now().toString(),
+    ...req.body,
+    image: req.file ? req.file.filename : null,
+    createdAt: new Date().toISOString()
+  };
+  db.products.push(product);
+  saveDB(db);
+  res.json({ success: true, product });
+});
+
+// إدارة الطلبات
+app.get('/api/orders', isAdmin, (req, res) => {
+  const db = getDB();
+  res.json(db.orders);
+});
+
+app.post('/api/orders', upload.single('paymentProof'), (req, res) => {
+  const db = getDB();
+  const order = {
+    id: Date.now().toString(),
+    ...req.body,
+    status: 'pending',
+    paymentProof: req.file ? req.file.filename : null,
+    createdAt: new Date().toISOString()
+  };
+  db.orders.push(order);
+  saveDB(db);
+  res.json({ success: true, order });
+});
+
+// إرسال البريد الإلكتروني
 app.post('/api/send-email', isAdmin, async (req, res) => {
   try {
     const { to, subject, text } = req.body;
-    
     await transporter.sendMail({
       from: `"متجر 𝐵𝒜𝟩𝐸𝑅" <${process.env.SMTP_USER}>`,
       to,
       subject,
       text
     });
-
     res.json({ success: true, message: 'تم إرسال البريد بنجاح' });
   } catch (error) {
-    console.error('SMTP Error:', error);
-    res.status(500).json({ success: false, message: 'فشل إرسال البريد' });
+    console.error('Error sending email:', error);
+    res.status(500).json({ success: false, error: 'فشل إرسال البريد' });
   }
 });
 
-// Products API
-app.get('/api/products', (req, res) => res.json(db.products));
+// =============================================
+// 5. تشغيل الخادم
+// =============================================
 
-app.post('/api/products', multer({ dest: 'uploads/' }).single('image'), (req, res) => {
-  const { name, price, sizes, stock } = req.body;
-  const newProduct = {
-    id: Date.now().toString(),
-    name,
-    price: parseFloat(price),
-    sizes: sizes.split(','),
-    stock: parseInt(stock),
-    image: req.file.filename,
-    createdAt: new Date()
-  };
-  db.products.push(newProduct);
-  saveDB();
-  io.emit('product-updated');
-  res.json({ success: true, product: newProduct });
-});
-
-// Orders API
-app.get('/api/orders', isAdmin, (req, res) => res.json(db.orders));
-
-app.post('/api/orders', multer({ dest: 'uploads/' }).single('paymentProof'), (req, res) => {
-  const order = {
-    id: Date.now().toString(),
-    ...req.body,
-    status: 'pending',
-    paymentProof: req.file?.filename,
-    createdAt: new Date()
-  };
-  db.orders.push(order);
-  saveDB();
-  res.json({ success: true, order });
-});
-
-app.put('/api/orders/:id', isAdmin, (req, res) => {
-  const order = db.orders.find(o => o.id === req.params.id);
-  if (order) {
-    Object.assign(order, req.body, { updatedAt: new Date() });
-    saveDB();
-    return res.json({ success: true, order });
-  }
-  res.status(404).json({ success: false });
-});
-
-// Serve HTML
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', req.path));
-});
-
-// Start Server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`الخادم يعمل على http://localhost:${PORT}`);
+  
+  // إنشاء مجلد uploads إذا لم يكن موجوداً
+  if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
+    console.log('تم إنشاء مجلد uploads');
+  }
+  
+  // إنشاء ملف db.json إذا لم يكن موجوداً
+  if (!fs.existsSync(dbPath)) {
+    saveDB({ products: [], orders: [], users: [] });
+    console.log('تم إنشاء ملف db.json');
+  }
 });
