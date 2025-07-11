@@ -1,0 +1,78 @@
+<!-- public/shop.html -->
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>منتجاتنا | متجر بحر</title>
+  <link rel="stylesheet" href="/public/css/style.css">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>منتجات متجر بحر</h1>
+    <nav>
+      <a href="/public/index.html">الرئيسية</a> |
+      <a href="/public/suggestions.html">الاقتراحات</a> |
+      <a href="/public/contact.html">الاستفسارات</a>
+    </nav>
+  </header>
+
+  <main id="products"></main>
+
+  <script>
+    const socket = io();
+    socket.on('new-product', () => {
+      alert('في منتجات جديدة! 👕');
+      location.reload();
+    });
+
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        const container = document.getElementById('products');
+        data.forEach(product => {
+          const div = document.createElement('div');
+          div.innerHTML = `
+            <h3>${product.name}</h3>
+            <img src="/uploads/${product.image}" width="200" />
+            <p>السعر: ${product.price} جنيه</p>
+            <form action="/api/order" method="POST" enctype="multipart/form-data">
+              <input type="hidden" name="product" value="${product.name}" />
+              <label>الحجم:</label>
+              <select name="size">
+                ${product.sizes.map(size => `<option>${size}</option>`).join('')}
+              </select><br>
+              <label>الكمية (1-10):</label>
+              <input type="number" name="quantity" min="1" max="10" value="1"><br>
+              <label>اسمك:</label><input type="text" name="name" required><br>
+              <label>البريد:</label><input type="email" name="email" required><br>
+              <label>رقم الهاتف:</label><input type="text" name="phone" required><br>
+              <label>طريقة الدفع:</label>
+              <select name="paymentMethod" onchange="toggleVodafone(this)">
+                <option value="cod">عند الاستلام</option>
+                <option value="vodafone">فودافون كاش</option>
+              </select><br>
+              <div class="vodafone-fields" style="display:none;">
+                <label>الاسم على فودافون:</label><input type="text" name="senderName"><br>
+                <label>رقم مرسل التحويل:</label><input type="text" name="fromNumber"><br>
+                <label>صورة التحويل:</label><input type="file" name="paymentProof"><br>
+              </div>
+              <button type="submit">أطلب دلوقتي</button>
+            </form>
+            <hr/>
+          `;
+          container.appendChild(div);
+        });
+      });
+
+    function toggleVodafone(select) {
+      const div = select.closest("form").querySelector(".vodafone-fields");
+      if (select.value === "vodafone") {
+        div.style.display = "block";
+      } else {
+        div.style.display = "none";
+      }
+    }
+  </script>
+</body>
+</html>

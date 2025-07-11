@@ -1,50 +1,78 @@
+<!-- admin/dashboard.html -->
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
   <meta charset="UTF-8">
   <title>لوحة التحكم</title>
-  <link rel="stylesheet" href="../styles/style.css">
+  <link rel="stylesheet" href="/public/css/style.css">
 </head>
 <body>
-  <main>
-    <h1>لوحة تحكم الإدمن</h1>
+  <h1>مرحبا بك يا أدمن</h1>
 
-    <section>
-      <h2>رفع منتج جديد</h2>
-      <form>
-        <label>اسم المنتج:</label><br>
-        <input type="text"><br>
-        <label>السعر:</label><br>
-        <input type="text"><br>
-        <label>الصورة:</label><br>
-        <input type="file"><br>
-        <label>الكمية:</label><br>
-        <input type="number" min="1"><br>
-        <button>رفع</button>
-      </form>
-    </section>
+  <section>
+    <h2>إضافة منتج جديد</h2>
+    <form action="/api/product" method="POST" enctype="multipart/form-data">
+      <input type="text" name="name" placeholder="اسم المنتج" required><br>
+      <input type="text" name="price" placeholder="السعر" required><br>
+      <input type="text" name="sizes" placeholder="مثال: S,M,L,XL,OS"><br>
+      <input type="number" name="stock" placeholder="الكمية" required><br>
+      <input type="file" name="image" accept="image/*" required><br>
+      <button type="submit">إضافة</button>
+    </form>
+  </section>
 
-    <section>
-      <h2>إرسال رسالة للعميل (SMTP)</h2>
-      <form>
-        <label>البريد الإلكتروني:</label><br>
-        <input type="email"><br>
-        <label>الرسالة:</label><br>
-        <textarea rows="4"></textarea><br>
-        <button type="submit">إرسال</button>
-      </form>
-    </section>
+  <section>
+    <h2>تعديل كمية المخزون</h2>
+    <form action="/api/update-stock" method="POST">
+      <input type="text" name="name" placeholder="اسم المنتج"><br>
+      <input type="number" name="stock" placeholder="الكمية الجديدة"><br>
+      <button type="submit">تحديث</button>
+    </form>
+  </section>
 
-    <section>
-      <h2>تعديل الكمية في المخزون</h2>
-      <form>
-        <label>اسم المنتج:</label><br>
-        <input type="text"><br>
-        <label>الكمية الجديدة:</label><br>
-        <input type="number" min="0"><br>
-        <button>تحديث</button>
-      </form>
-    </section>
-  </main>
+  <section>
+    <h2>إرسال رسالة للعميل</h2>
+    <form action="/api/send-email" method="POST">
+      <input type="email" name="to" placeholder="البريد الإلكتروني"><br>
+      <input type="text" name="subject" placeholder="الموضوع"><br>
+      <textarea name="message" placeholder="محتوى الرسالة"></textarea><br>
+      <button type="submit">إرسال</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>طلبات العملاء</h2>
+    <table border="1">
+      <thead>
+        <tr>
+          <th>المنتج</th>
+          <th>الكمية</th>
+          <th>الحجم</th>
+          <th>اسم العميل</th>
+          <th>البريد</th>
+          <th>الهاتف</th>
+        </tr>
+      </thead>
+      <tbody id="orders-body"></tbody>
+    </table>
+  </section>
+
+  <script>
+    fetch('/api/orders').then(res => res.json()).then(data => {
+      const tbody = document.getElementById('orders-body');
+      data.forEach(order => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${order.product}</td>
+          <td>${order.quantity}</td>
+          <td>${order.size}</td>
+          <td>${order.name}</td>
+          <td>${order.email}</td>
+          <td>${order.phone}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+  </script>
 </body>
 </html>
