@@ -1,1 +1,33 @@
-/* Main Stylesheet */
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #fff;
+  color: #000;
+  direction: rtl;
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  background-color: #222;
+  color: white;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+nav ul {
+  list-style: none;
+  display: flex;
+  gap: 1rem;
+}
+
+nav ul li a {
+  color: white;
+  text-decoration: none;
+}
+
+body.dark-mode {
+  background-color: #121212;
+  color: white;
+}

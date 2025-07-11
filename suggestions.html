@@ -1,1 +1,35 @@
-<!-- Suggestions Page HTML -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>اقتراحاتك</title>
+  <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-right">متجر الأناقة</div>
+    <nav>
+      <ul>
+        <li><a href="index.html">الرئيسية</a></li>
+        <li><a href="shop.html">الملابس</a></li>
+        <li><a href="contact.html">الاستفسار</a></li>
+        <li><a href="suggestions.html">الاقتراحات</a></li>
+      </ul>
+    </nav>
+    <button id="toggle-mode">🌙</button>
+  </header>
+
+  <main>
+    <h1>اقترح علينا منتجات أو خدمات</h1>
+    <form>
+      <label>الاسم:</label><br>
+      <input type="text" required><br>
+      <label>اقتراحك:</label><br>
+      <textarea rows="5" required></textarea><br>
+      <button type="submit">إرسال</button>
+    </form>
+  </main>
+
+  <script src="scripts/app.js"></script>
+</body>
+</html>
