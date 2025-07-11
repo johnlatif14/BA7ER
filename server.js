@@ -24,7 +24,8 @@ app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static
+// Static files
+app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // جلسات
@@ -32,10 +33,12 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'secret',
   resave: false,
   saveUninitialized: false,
+  cookie: { secure: false } // تغيير لـ true إذا كنت تستخدم HTTPS
 }));
 
 // CSRF
-app.use(csrf());
+const csrfProtection = csrf();
+app.use(csrfProtection);
 app.use((req, res, next) => {
   res.locals.csrfToken = req.csrfToken();
   next();
@@ -43,7 +46,7 @@ app.use((req, res, next) => {
 
 // قاعدة البيانات
 const dbPath = './db.json';
-if (!fs.existsSync(dbPath)) fs.writeFileSync(dbPath, JSON.stringify({ products: [], orders: [] }, null, 2));
+if (!fs.existsSync(dbPath)) fs.writeFileSync(dbPath, JSON.stringify({ products: [], orders: [], inquiries: [], reviews: [] }, null, 2));
 const db = JSON.parse(fs.readFileSync(dbPath));
 const saveDB = () => fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
 
@@ -53,32 +56,28 @@ const isAdmin = (req, res, next) => {
   res.redirect('/login.html');
 };
 
+// APIs
 // تقديم CSRF token
 app.get('/api/csrf-token', (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
 
 // صفحات ثابتة
-app.get('/', (req, res) => res.send(renderHTML('الرئيسية', '<h1 class="text-center mt-5">مرحبًا بك في متجر بحر</h1>')));
-app.get('/shop.html', (req, res) => res.send(renderHTML('الملابس', renderProducts())));
-app.get('/suggestions.html', (req, res) => res.send(renderHTML('اقتراحات', `
-  <form class="container mt-4">
-    <textarea class="form-control mb-3" rows="5" placeholder="اكتب اقتراحك هنا"></textarea>
-    <button class="btn btn-success">إرسال</button>
-  </form>
-`)));
-app.get('/contact.html', (req, res) => res.send(renderHTML('اتصل بنا', `<div class="container mt-4"><h4>راسلنا لأي استفسار!</h4></div>`)));
-app.get('/login.html', (req, res) => res.send(renderLoginPage(res.locals.csrfToken)));
-app.get('/admin/dashboard.html', isAdmin, (req, res) => res.send(renderDashboard(res.locals.csrfToken)));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/shop.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'shop.html')));
+app.get('/suggestions.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'suggestions.html')));
+app.get('/contact.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'contact.html')));
+app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/dashboard.html', isAdmin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
 // تسجيل الدخول
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
     req.session.isAdmin = true;
-    return res.redirect('/admin/dashboard.html');
+    return res.redirect('/dashboard.html'); // تم التعديل هنا
   }
-  return res.send('خطأ في تسجيل الدخول');
+  return res.status(401).send('خطأ في تسجيل الدخول');
 });
 
 // خروج
@@ -86,121 +85,128 @@ app.post('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/'));
 });
 
-// APIs
+// APIs للبيانات
 app.get('/api/products', (req, res) => res.json(db.products));
 app.get('/api/orders', isAdmin, (req, res) => res.json(db.orders));
+app.get('/api/inquiries', isAdmin, (req, res) => res.json(db.inquiries));
+app.get('/api/reviews', isAdmin, (req, res) => res.json(db.reviews));
 
 // طلب جديد
 app.post('/api/order', multer({ dest: 'uploads/' }).single('paymentProof'), (req, res) => {
-  const order = { ...req.body, createdAt: new Date() };
+  const order = { 
+    ...req.body, 
+    status: 'pending',
+    createdAt: new Date(),
+    paymentProof: req.file ? req.file.filename : null
+  };
   db.orders.push(order);
+  
   const prod = db.products.find(p => p.name === order.product);
   if (prod) prod.stock = Math.max(0, prod.stock - +order.quantity);
+  
   saveDB();
-  res.redirect('/shop.html');
+  res.json({ success: true, message: 'تم استلام الطلب بنجاح' });
 });
 
 // منتج جديد
 app.post('/api/product', multer({ dest: 'uploads/' }).single('image'), isAdmin, (req, res) => {
   const { name, price, sizes, stock } = req.body;
   const image = req.file.filename;
-  db.products.push({ name, price, sizes: sizes.split(','), stock: +stock, image });
+  
+  db.products.push({ 
+    name, 
+    price, 
+    sizes: sizes.split(','), 
+    stock: +stock, 
+    image,
+    createdAt: new Date()
+  });
+  
   saveDB();
   io.emit('new-product');
-  res.redirect('/admin/dashboard.html');
+  res.json({ success: true, message: 'تم إضافة المنتج بنجاح' });
 });
 
-// تحديث المخزون
-app.post('/api/update-stock', isAdmin, (req, res) => {
-  const prod = db.products.find(p => p.name === req.body.name);
-  if (prod) {
-    prod.stock = +req.body.stock;
+// تحديث حالة الطلب
+app.post('/api/update-order/:id', isAdmin, (req, res) => {
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (order) {
+    order.status = req.body.status;
+    order.updatedAt = new Date();
     saveDB();
+    return res.json({ success: true });
   }
-  res.redirect('/admin/dashboard.html');
+  res.status(404).json({ success: false });
+});
+
+// حذف طلب
+app.delete('/api/delete-order/:id', isAdmin, (req, res) => {
+  db.orders = db.orders.filter(o => o.id !== req.params.id);
+  saveDB();
+  res.json({ success: true });
 });
 
 // إرسال بريد
 app.post('/api/send-email', isAdmin, async (req, res) => {
   const { to, subject, message } = req.body;
+  
   try {
-    await nodemailer.createTransport({
+    const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
       }
-    }).sendMail({ from: process.env.EMAIL_USER, to, subject, text: message });
+    });
+    
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to,
+      subject,
+      text: message
+    });
+    
+    res.json({ success: true, message: 'تم إرسال الرسالة بنجاح' });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ success: false, message: 'فشل إرسال الرسالة' });
   }
-  res.redirect('/admin/dashboard.html');
 });
 
-// HTML Templates
-function renderHTML(title, content) {
-  return `<!DOCTYPE html><html lang="ar" dir="rtl">
-  <head><meta charset="UTF-8"><title>${title}</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-  </head><body>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container"><a class="navbar-brand" href="/">متجر بحر</a></div>
-  </nav>
-  <main class="container mt-4">${content}</main>
-  </body></html>`;
-}
+// إضافة استفسار
+app.post('/api/inquiry', (req, res) => {
+  const inquiry = {
+    ...req.body,
+    status: 'new',
+    createdAt: new Date()
+  };
+  db.inquiries.push(inquiry);
+  saveDB();
+  res.json({ success: true });
+});
 
-function renderLoginPage(csrfToken) {
-  return `<!DOCTYPE html><html lang="ar" dir="rtl"><head>
-  <meta charset="UTF-8"><title>تسجيل الدخول</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet"></head>
-  <body><main class="container mt-5" style="max-width:400px">
-    <h3 class="text-center">دخول الأدمن</h3>
-    <form method="POST" action="/login">
-      <input type="hidden" name="_csrf" value="${csrfToken}">
-      <div class="mb-3"><input name="username" class="form-control" placeholder="اسم المستخدم" required></div>
-      <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="كلمة المرور" required></div>
-      <button class="btn btn-primary w-100">دخول</button>
-    </form>
-  </main></body></html>`;
-}
-
-function renderProducts() {
-  const items = db.products.map(p => `
-    <div class="col-md-4 mb-4">
-      <div class="card"><img src="/uploads/${p.image}" class="card-img-top">
-        <div class="card-body text-center">
-          <h5>${p.name}</h5>
-          <p>${p.price} جنيه</p>
-        </div>
-      </div>
-    </div>`).join('');
-  return `<div class="row">${items}</div>`;
-}
-
-function renderDashboard(csrfToken) {
-  return `<!DOCTYPE html><html lang="ar" dir="rtl"><head>
-  <meta charset="UTF-8"><title>لوحة التحكم</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet"></head>
-  <body><nav class="navbar navbar-dark bg-dark p-2">
-    <a class="navbar-brand" href="#">لوحة التحكم</a>
-    <form method="POST" action="/logout"><button class="btn btn-light">خروج</button></form>
-  </nav><main class="container mt-4">
-    <h4>إضافة منتج</h4>
-    <form action="/api/product" method="POST" enctype="multipart/form-data">
-      <input type="hidden" name="_csrf" value="${csrfToken}">
-      <input name="name" class="form-control mb-2" placeholder="الاسم" required>
-      <input name="price" class="form-control mb-2" placeholder="السعر" required>
-      <input name="sizes" class="form-control mb-2" placeholder="المقاسات: S,M,L" required>
-      <input name="stock" class="form-control mb-2" type="number" placeholder="الكمية" required>
-      <input name="image" class="form-control mb-2" type="file" required>
-      <button class="btn btn-success">رفع</button>
-    </form>
-  </main></body></html>`;
-}
+// الرد على استفسار
+app.post('/api/respond-inquiry/:id', isAdmin, (req, res) => {
+  const inquiry = db.inquiries.find(i => i.id === req.params.id);
+  if (inquiry) {
+    inquiry.response = req.body.response;
+    inquiry.status = 'responded';
+    inquiry.respondedAt = new Date();
+    saveDB();
+    return res.json({ success: true });
+  }
+  res.status(404).json({ success: false });
+});
 
 // Socket.io
-io.on('connection', () => {});
+io.on('connection', (socket) => {
+  socket.on('disconnect', () => {
+    console.log('User disconnected');
+  });
+});
 
-server.listen(process.env.PORT || 3000, () =>
-  console.log('Server running on http://localhost:3000'));
+// تشغيل السيرفر
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
