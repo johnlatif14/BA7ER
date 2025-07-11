@@ -55,6 +55,16 @@ app.use(session({
   }
 }));
 
+// في قسم الميدلوير في server.js
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "script-src": ["'self'", "'unsafe-inline'"],
+    },
+  },
+}));
+
 // تحديد معدل الطلبات للوقاية من الهجمات
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 دقيقة

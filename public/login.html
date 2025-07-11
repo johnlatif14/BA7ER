@@ -74,40 +74,6 @@
 </form>
     </div>
 
-<script>
-document.getElementById('loginForm').addEventListener('submit', async function(e) {
-    e.preventDefault(); // منع السلوك الافتراضي للنموذج
-    
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const errorElement = document.getElementById('errorMessage');
-    
-    try {
-        const response = await fetch('/api/login', {
-            method: 'POST', // تأكد من استخدام POST
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                username: username,
-                password: password
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            window.location.href = result.redirect;
-        } else {
-            errorElement.textContent = result.error || 'فشل تسجيل الدخول';
-            errorElement.style.display = 'block';
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        errorElement.textContent = 'حدث خطأ أثناء الاتصال بالخادم';
-        errorElement.style.display = 'block';
-    }
-});
-</script>
+<script src="/js/login.js"></script>
 </body>
 </html>
