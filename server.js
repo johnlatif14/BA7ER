@@ -1,28 +1,45 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const csrf = require('csurf');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
-const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 
-// Initialize Express app
+// تهيئة Express
 const app = express();
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ba7er_store', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('MongoDB connection error:', err));
+// تهيئة قاعدة البيانات JSON
+const DB_FILE = path.join(__dirname, 'db.json');
+
+function readDB() {
+  try {
+    const data = fs.readFileSync(DB_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    // إذا لم يكن الملف موجودًا، إنشاء ملف جديد بقيم افتراضية
+    const defaultDB = {
+      users: [],
+      products: [],
+      orders: [],
+      suggestions: [],
+      contactMessages: []
+    };
+    writeDB(defaultDB);
+    return defaultDB;
+  }
+}
+
+function writeDB(data) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
 
 // Middleware
 app.use(cors());
@@ -39,8 +56,8 @@ app.use(session({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000, // 15 دقيقة
+  max: 100 // 100 طلب لكل IP
 });
 app.use(limiter);
 
@@ -48,10 +65,10 @@ app.use(limiter);
 const csrfProtection = csrf({ cookie: true });
 app.use(csrfProtection);
 
-// File upload configuration
+// تهيئة تحميل الملفات
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, 'public/uploads/');
   },
   filename: (req, file, cb) => {
     cb(null, uuidv4() + path.extname(file.originalname));
@@ -59,7 +76,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// SMTP Configuration
+// تهيئة SMTP
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: process.env.SMTP_PORT || 587,
@@ -73,7 +90,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Test SMTP connection
+// اختبار اتصال SMTP
 transporter.verify((error, success) => {
   if (error) {
     console.error('SMTP connection error:', error);
@@ -82,60 +99,23 @@ transporter.verify((error, success) => {
   }
 });
 
-// Database Models
-const User = mongoose.model('User', new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  role: { type: String, default: 'admin' },
-  createdAt: { type: Date, default: Date.now }
-}));
-
-const Product = mongoose.model('Product', new mongoose.Schema({
-  name: { type: String, required: true },
-  description: { type: String },
-  price: { type: Number, required: true },
-  sizes: { type: [String], default: [] },
-  stock: { type: Number, default: 0 },
-  image: { type: String },
-  createdAt: { type: Date, default: Date.now }
-}));
-
-const Order = mongoose.model('Order', new mongoose.Schema({
-  customerName: { type: String, required: true },
-  customerEmail: { type: String },
-  customerPhone: { type: String },
-  items: [{
-    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-    quantity: { type: Number, default: 1 },
-    size: { type: String }
-  }],
-  total: { type: Number, required: true },
-  status: { type: String, enum: ['pending', 'shipped', 'delivered'], default: 'pending' },
-  address: { type: String },
-  trackingNumber: { type: String },
-  createdAt: { type: Date, default: Date.now }
-}));
-
-const Suggestion = mongoose.model('Suggestion', new mongoose.Schema({
-  content: { type: String, required: true },
-  email: { type: String },
-  createdAt: { type: Date, default: Date.now }
-}));
-
-const ContactMessage = mongoose.model('ContactMessage', new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true },
-  message: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
-}));
-
-// Static files
+// ملفات ثابتة
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/login.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/dashboard.html', (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login.html');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 app.get('/api/csrf-token', (req, res) => {
@@ -146,17 +126,27 @@ app.get('/api/csrf-token', (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username });
+    const db = readDB();
+    const user = db.users.find(u => u.username === username);
     
     if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+      return res.status(401).json({ 
+        success: false, 
+        error: 'اسم المستخدم أو كلمة المرور غير صحيحة' 
+      });
     }
     
     req.session.user = user;
-    res.json({ success: true, redirect: '/dashboard.html' });
+    res.json({ 
+      success: true, 
+      redirect: '/dashboard.html'
+    });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ success: false, error: 'Server error' });
+    res.status(500).json({ 
+      success: false, 
+      error: 'خطأ في الخادم' 
+    });
   }
 });
 
@@ -166,28 +156,35 @@ app.post('/api/logout', (req, res) => {
 });
 
 // Products API
-app.get('/api/products', async (req, res) => {
+app.get('/api/products', (req, res) => {
   try {
-    const products = await Product.find();
-    res.json(products);
+    const db = readDB();
+    res.json(db.products);
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.post('/api/products', upload.single('image'), async (req, res) => {
+app.post('/api/products', upload.single('image'), (req, res) => {
   try {
     const { name, description, price, sizes, stock } = req.body;
-    const product = new Product({
+    const db = readDB();
+    
+    const product = {
+      id: uuidv4(),
       name,
       description,
-      price,
+      price: parseFloat(price),
       sizes: sizes.split(',').map(s => s.trim()),
-      stock,
-      image: req.file ? req.file.filename : null
-    });
-    await product.save();
+      stock: parseInt(stock),
+      image: req.file ? path.basename(req.file.path) : null,
+      createdAt: new Date().toISOString()
+    };
+    
+    db.products.push(product);
+    writeDB(db);
+    
     res.json(product);
   } catch (error) {
     console.error('Error creating product:', error);
@@ -196,11 +193,16 @@ app.post('/api/products', upload.single('image'), async (req, res) => {
 });
 
 // Orders API
-app.get('/api/orders', async (req, res) => {
+app.get('/api/orders', (req, res) => {
   try {
     const { status } = req.query;
-    const query = status && status !== 'all' ? { status } : {};
-    const orders = await Order.find(query).populate('items.productId');
+    const db = readDB();
+    
+    let orders = db.orders;
+    if (status && status !== 'all') {
+      orders = orders.filter(o => o.status === status);
+    }
+    
     res.json(orders);
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -212,10 +214,20 @@ app.get('/api/orders', async (req, res) => {
 app.post('/api/contact', async (req, res) => {
   try {
     const { name, email, message } = req.body;
-    const contactMessage = new ContactMessage({ name, email, message });
-    await contactMessage.save();
+    const db = readDB();
     
-    // Send confirmation email
+    const contactMessage = {
+      id: uuidv4(),
+      name,
+      email,
+      message,
+      createdAt: new Date().toISOString()
+    };
+    
+    db.contactMessages.push(contactMessage);
+    writeDB(db);
+    
+    // إرسال إيميل التأكيد
     const mailOptions = {
       from: process.env.SMTP_USER,
       to: email,
@@ -235,8 +247,17 @@ app.post('/api/contact', async (req, res) => {
 app.post('/api/suggestions', async (req, res) => {
   try {
     const { content, email } = req.body;
-    const suggestion = new Suggestion({ content, email });
-    await suggestion.save();
+    const db = readDB();
+    
+    const suggestion = {
+      id: uuidv4(),
+      content,
+      email,
+      createdAt: new Date().toISOString()
+    };
+    
+    db.suggestions.push(suggestion);
+    writeDB(db);
     
     if (email) {
       const mailOptions = {
@@ -281,23 +302,29 @@ app.post('/api/orders/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { status, trackingNumber } = req.body;
+    const db = readDB();
     
-    const order = await Order.findByIdAndUpdate(id, { status, trackingNumber }, { new: true });
-    
-    if (!order) {
+    const orderIndex = db.orders.findIndex(o => o.id === id);
+    if (orderIndex === -1) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
     
-    // Send email notification if status changed to shipped or delivered
+    db.orders[orderIndex].status = status;
+    db.orders[orderIndex].trackingNumber = trackingNumber;
+    writeDB(db);
+    
+    const order = db.orders[orderIndex];
+    
+    // إرسال إيميل التحديث إذا كانت الحالة shipped أو delivered
     if (order.customerEmail && (status === 'shipped' || status === 'delivered')) {
       let subject, text;
       
       if (status === 'shipped') {
         subject = 'تم شحن طلبك - متجر 𝐵𝒜𝟩𝐸𝑅';
-        text = `مرحباً ${order.customerName},\n\nتم شحن طلبك رقم ${order._id}.\n\nرقم التتبع: ${trackingNumber}\n\nيمكنك تتبع شحنتك باستخدام الرابط التالي: https://tracking.example.com/?tracking=${trackingNumber}\n\nمع تحياتنا,\nفريق 𝐵𝒜𝟩𝐸𝑅`;
+        text = `مرحباً ${order.customerName},\n\nتم شحن طلبك رقم ${order.id}.\n\nرقم التتبع: ${trackingNumber}\n\nمع تحياتنا,\nفريق 𝐵𝒜𝟩𝐸𝑅`;
       } else {
         subject = 'تم تسليم طلبك - متجر 𝐵𝒜𝟩𝐸𝑅';
-        text = `مرحباً ${order.customerName},\n\nتم تسليم طلبك رقم ${order._id} بنجاح.\n\nنأمل أن تكون راضياً عن مشترياتك. إذا كان لديك أي استفسارات، لا تتردد في التواصل معنا.\n\nمع تحياتنا,\nفريق 𝐵𝒜𝟩𝐸𝑅`;
+        text = `مرحباً ${order.customerName},\n\nتم تسليم طلبك رقم ${order.id} بنجاح.\n\nنأمل أن تكون راضياً عن مشترياتك.\n\nمع تحياتنا,\nفريق 𝐵𝒜𝟩𝐸𝑅`;
       }
       
       const mailOptions = {
@@ -317,22 +344,28 @@ app.post('/api/orders/:id/status', async (req, res) => {
   }
 });
 
-// Create initial admin user if not exists
-async function createInitialAdmin() {
-  const adminExists = await User.findOne({ username: 'BA7ER' });
+// إنشاء مستخدم مدير إذا لم يوجد
+function createInitialAdmin() {
+  const db = readDB();
+  const adminExists = db.users.some(u => u.username === 'BA7ER');
+  
   if (!adminExists) {
     const hashedPassword = bcrypt.hashSync('Fahd', 10);
-    const admin = new User({
-      username: 'admin',
+    const admin = {
+      id: uuidv4(),
+      username: 'BA7ER',
       password: hashedPassword,
-      role: 'admin'
-    });
-    await admin.save();
+      role: 'BA7ER',
+      createdAt: new Date().toISOString()
+    };
+    
+    db.users.push(admin);
+    writeDB(db);
     console.log('Initial admin user created');
   }
 }
 
-// Start server
+// بدء الخادم
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
