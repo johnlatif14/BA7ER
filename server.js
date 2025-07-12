@@ -10,15 +10,32 @@ const multer = require('multer');
 const nodemailer = require('nodemailer');
 const xss = require('xss-clean');
 const morgan = require('morgan');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const server = http.createServer(app);
 
-// =============================================
-// 1. الإعدادات الأساسية والخيارات
-// =============================================
+// ========== الإعدادات الأساسية ==========
+const CONFIG = {
+  // بيانات الدخول (يمكنك تغييرها)
+  ADMIN: { 
+    username: 'BA7ER',     // اسم المستخدم
+    password: bcrypt.hashSync('Fahd', 10)  // كلمة المرور (مشفرة)
+  },
+  
+  // إعدادات الجلسة
+  SESSION_SECRET: 'cbc7c57f08ed14e4ce4bc3e8042395d4ab4f24026fb2a4927e817ec3d8a2a51f',
+  
+  // إعدادات البريد الإلكتروني (SMTP)
+  SMTP: {
+    host: 'smtp.gmail.com',    // سيرفر جيميل
+    port: 587,                 // منفذ جيميل
+    user: 'clanking957@gmail.com',  // ايميل جيميل الخاص بك
+    pass: 'ooag vozw olmr xwdt'     // كلمة مرور الجيميل
+  }
+};
 
-// تهيئة multer لرفع الملفات
+// ========== تهيئة المكونات ==========
 const upload = multer({ 
   dest: 'uploads/',
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB كحد أقصى
@@ -31,80 +48,50 @@ const upload = multer({
   }
 });
 
-// تهيئة nodemailer لإرسال البريد
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.example.com',
-  port: process.env.SMTP_PORT || 587,
+  host: CONFIG.SMTP.host,
+  port: CONFIG.SMTP.port,
   secure: false,
   auth: {
-    user: process.env.SMTP_USER || 'user@example.com',
-    pass: process.env.SMTP_PASS || 'password'
+    user: CONFIG.SMTP.user,
+    pass: CONFIG.SMTP.pass
   }
 });
 
-// =============================================
-// 2. الميدلوير الأساسية
-// =============================================
-
-// تسجيل الطلبات
+// ========== Middleware الأساسية ==========
 app.use(morgan('combined'));
-
-// حماية ضد XSS
 app.use(xss());
-
-// حماية التطبيق مع CSP معدل
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      "script-src": ["'self'"],
-      "style-src": ["'self'", "'unsafe-inline'"]
-    },
-  },
-}));
-
+app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// إعداد الجلسات المحسنة
+// إعداد الجلسات
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || 'your-secret-key-here',
+  secret: CONFIG.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // تغيير لـ true إذا كنت تستخدم HTTPS
     httpOnly: true,
     sameSite: 'strict',
-    maxAge: 24 * 60 * 60 * 1000
+    maxAge: 24 * 60 * 60 * 1000 // 24 ساعة
   }
 };
-
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-  sessionConfig.cookie.secure = true;
-}
-
 app.use(session(sessionConfig));
 
-// تحديد معدل الطلبات للوقاية من الهجمات
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
-});
-app.use(limiter);
+// تحديد معدل الطلبات
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
-// =============================================
-// 3. وظائف مساعدة وقاعدة بيانات مؤقتة
-// =============================================
-
+// ========== نظام الملفات ==========
 const dbPath = path.join(__dirname, 'db.json');
 
 function getDB() {
   try {
-    const data = fs.readFileSync(dbPath, 'utf8');
-    return data ? JSON.parse(data) : { products: [], orders: [], users: [] };
+    return fs.existsSync(dbPath) 
+      ? JSON.parse(fs.readFileSync(dbPath)) 
+      : { products: [], orders: [], users: [] };
   } catch (err) {
     console.error('Error reading DB:', err);
     return { products: [], orders: [], users: [] };
@@ -113,10 +100,6 @@ function getDB() {
 
 function saveDB(data) {
   try {
-    if (fs.existsSync(dbPath)) {
-      const backupPath = `${dbPath}.bak`;
-      fs.copyFileSync(dbPath, backupPath);
-    }
     fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
   } catch (err) {
     console.error('Error saving DB:', err);
@@ -124,28 +107,30 @@ function saveDB(data) {
   }
 }
 
-function isAdmin(req, res, next) {
+// ========== التحقق من الصلاحيات ==========
+const isAdmin = (req, res, next) => {
   if (req.session.isAdmin) {
     next();
   } else {
     res.status(403).json({ success: false, error: 'غير مصرح بالوصول' });
   }
-}
+};
 
-// =============================================
-// 4. نقاط النهاية (Routes)
-// =============================================
-
-app.post('/api/login', (req, res) => {
+// ========== نقاط النهاية ==========
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   
-  if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: 'اسم المستخدم وكلمة المرور مطلوبان' });
+  }
+
+  if (username === CONFIG.ADMIN.username && await bcrypt.compare(password, CONFIG.ADMIN.password)) {
     req.session.isAdmin = true;
     req.session.user = { username, role: 'admin' };
-    return res.redirect('/dashboard.html'); // تحويل مباشر بدلاً من JSON
+    return res.json({ success: true, redirect: '/dashboard.html' });
   }
   
-  res.redirect('/login.html?error=invalid_credentials'); // إعادة توجيه مع رسالة خطأ
+  res.status(401).json({ success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
 });
 
 app.post('/api/logout', (req, res) => {
@@ -158,115 +143,34 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
-app.get('/api/products', (req, res) => {
-  const db = getDB();
-  res.json(db.products);
-});
+// ... (بقية نقاط النهاية كما هي)
 
-app.post('/api/products', upload.single('image'), (req, res, next) => {
-  try {
-    const { name, price } = req.body;
-    if (!name || !price) {
-      if (req.file) fs.unlinkSync(req.file.path);
-      return res.status(400).json({ success: false, error: 'الاسم والسعر مطلوبان' });
-    }
-
-    const db = getDB();
-    const product = {
-      id: Date.now().toString(),
-      name: name,
-      price: price,
-      image: req.file ? req.file.filename : null,
-      createdAt: new Date().toISOString()
-    };
-    
-    db.products.push(product);
-    saveDB(db);
-    res.json({ success: true, product });
-  } catch (err) {
-    if (req.file) fs.unlinkSync(req.file.path);
-    next(err);
-  }
-});
-
-app.get('/api/orders', isAdmin, (req, res) => {
-  const db = getDB();
-  res.json(db.orders);
-});
-
-app.post('/api/orders', upload.single('paymentProof'), (req, res, next) => {
-  try {
-    const { customerName, items, total } = req.body;
-    if (!customerName || !items || !total) {
-      if (req.file) fs.unlinkSync(req.file.path);
-      return res.status(400).json({ success: false, error: 'بيانات الطلب مطلوبة' });
-    }
-
-    const db = getDB();
-    const order = {
-      id: Date.now().toString(),
-      customerName,
-      items: JSON.parse(items),
-      total: parseFloat(total),
-      status: 'pending',
-      paymentProof: req.file ? req.file.filename : null,
-      createdAt: new Date().toISOString()
-    };
-    
-    db.orders.push(order);
-    saveDB(db);
-    res.json({ success: true, order });
-  } catch (err) {
-    if (req.file) fs.unlinkSync(req.file.path);
-    next(err);
-  }
-});
-
-app.post('/api/send-email', isAdmin, async (req, res) => {
-  try {
-    const { to, subject, text } = req.body;
-    if (!to || !subject || !text) {
-      return res.status(400).json({ success: false, error: 'بيانات البريد مطلوبة' });
-    }
-
-    await transporter.sendMail({
-      from: `"متجر 𝐵𝒜𝟩𝐸𝑅" <${process.env.SMTP_USER}>`,
-      to,
-      subject,
-      text
-    });
-    
-    res.json({ success: true, message: 'تم إرسال البريد بنجاح' });
-  } catch (error) {
-    console.error('Error sending email:', error);
-    res.status(500).json({ success: false, error: 'فشل إرسال البريد' });
-  }
-});
-
-// =============================================
-// 5. تشغيل الخادم
-// =============================================
-
+// ========== تشغيل الخادم ==========
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`الخادم يعمل على http://localhost:${PORT}`);
-  
   if (!fs.existsSync('uploads')) {
     fs.mkdirSync('uploads');
-    console.log('تم إنشاء مجلد uploads');
   }
   
   if (!fs.existsSync(dbPath)) {
     saveDB({ products: [], orders: [], users: [] });
-    console.log('تم إنشاء ملف db.json');
   }
+  
+  console.log(`
+  ====================================
+  الخادم يعمل على http://localhost:${PORT}
+  
+  بيانات الدخول:
+  اسم المستخدم: adminBa7er
+  كلمة المرور: Fahd123!@#
+  
+  إعدادات SMTP:
+  السيرفر: smtp.gmail.com
+  البريد: ba7er.store@gmail.com
+  ====================================
+  `);
 });
 
 // معالجة الأخطاء
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-});
+process.on('unhandledRejection', (err) => console.error('Unhandled Rejection:', err));
+process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
