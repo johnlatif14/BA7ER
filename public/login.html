@@ -49,6 +49,7 @@
     <div class="login-container">
         <h2 style="text-align: center;">تسجيل الدخول</h2>
         <form id="loginForm">
+            <input type="hidden" name="_csrf" value="">
             <input type="text" name="username" placeholder="اسم المستخدم" required>
             <input type="password" name="password" placeholder="كلمة المرور" required>
             <button type="submit">دخول</button>
@@ -56,33 +57,36 @@
         <div id="errorMessage" style="color: red; margin-top: 1rem; text-align: center;"></div>
     </div>
 
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const errorElement = document.getElementById('errorMessage');
-            errorElement.textContent = '';
-            
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: formData.get('username'),
-                        password: formData.get('password')
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    window.location.href = result.redirect;
-                } else {
-                    errorElement.textContent = result.error || 'فشل تسجيل الدخول';
-                }
-            } catch (error) {
-                errorElement.textContent = 'فشل الاتصال بالسيرفر';
-            }
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const errorElement = document.getElementById('errorMessage');
+    errorElement.textContent = '';
+    
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST', // تأكد أنها POST وليس GET
+            headers: { 
+                'Content-Type': 'application/json',
+                'CSRF-Token': document.querySelector('[name=_csrf]').value
+            },
+            body: JSON.stringify({
+                username: formData.get('username'),
+                password: formData.get('password')
+            })
         });
-    </script>
+        
+        const result = await response.json();
+        if (result.success) {
+            window.location.href = result.redirect;
+        } else {
+            errorElement.textContent = result.error || 'فشل تسجيل الدخول';
+        }
+    } catch (error) {
+        errorElement.textContent = 'فشل الاتصال بالسيرفر';
+    }
+});
+</script>
 </body>
 </html>
