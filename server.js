@@ -64,8 +64,8 @@ app.use(session({
     cookie: { 
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000 // 24 ساعة
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000
     }
 }));
 
@@ -77,7 +77,13 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // CSRF protection
-const csrfProtection = csrf({ cookie: true });
+const csrfProtection = csrf({ 
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        sameSite: 'strict'
+    }
+});
 app.use(csrfProtection);
 
 // تهيئة تحميل الملفات
@@ -145,7 +151,16 @@ app.get('/api/csrf-token', (req, res) => {
 // Authentication routes
 app.post('/api/login', async (req, res) => {
     try {
+        // التحقق من وجود CSRF token
+        if (!req.body._csrf) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'رمز الحماية غير صالح' 
+            });
+        }
+
         const { username, password } = req.body;
+        
         if (!username || !password) {
             return res.status(400).json({ 
                 success: false, 
@@ -184,6 +199,7 @@ app.post('/api/logout', (req, res) => {
             return res.status(500).json({ success: false });
         }
         res.clearCookie('connect.sid');
+        res.clearCookie('_csrf');
         res.json({ success: true, redirect: '/login.html' });
     });
 });
@@ -260,7 +276,6 @@ app.post('/api/contact', async (req, res) => {
         db.contactMessages.push(contactMessage);
         writeDB(db);
         
-        // إرسال إيميل التأكيد
         const mailOptions = {
             from: process.env.SMTP_USER,
             to: email,
@@ -348,7 +363,6 @@ app.post('/api/orders/:id/status', async (req, res) => {
         
         const order = db.orders[orderIndex];
         
-        // إرسال إيميل التحديث إذا كانت الحالة shipped أو delivered
         if (order.customerEmail && (status === 'shipped' || status === 'delivered')) {
             let subject, text;
             
@@ -360,14 +374,12 @@ app.post('/api/orders/:id/status', async (req, res) => {
                 text = `مرحباً ${order.customerName},\n\nتم تسليم طلبك رقم ${order.id} بنجاح.\n\nنأمل أن تكون راضياً عن مشترياتك.\n\nمع تحياتنا,\nفريق 𝐵𝒜𝟩𝐸𝑅`;
             }
             
-            const mailOptions = {
+            await transporter.sendMail({
                 from: process.env.SMTP_USER,
                 to: order.customerEmail,
                 subject,
                 text
-            };
-            
-            await transporter.sendMail(mailOptions);
+            });
         }
         
         res.json({ success: true, order });
