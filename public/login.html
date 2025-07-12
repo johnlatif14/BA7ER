@@ -59,34 +59,38 @@
 <body>
     <div class="login-container">
         <h2 style="text-align: center;">تسجيل الدخول</h2>
-<form id="loginForm">
-    <input type="text" name="username" placeholder="Username" required>
-    <input type="password" name="password" placeholder="Password" required>
-    <button type="submit">Login</button>
-</form>
+    <form id="loginForm">
+        <input type="text" name="username" placeholder="اسم المستخدم" required>
+        <input type="password" name="password" placeholder="كلمة المرور" required>
+        <button type="submit">دخول</button>
+    </form>
     </div>
 
-<script>
-  document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    
-    const response = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: formData.get('username'),
-        password: formData.get('password')
-      })
-    });
-    
-    const result = await response.json();
-    if (result.success) {
-      window.location.href = result.redirect; // توجيه إلى /dashboard.html
-    } else {
-      alert(result.error); // عرض خطأ إذا فشل التسجيل
-    }
-  });
-</script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: formData.get('username'),
+                        password: formData.get('password')
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    window.location.href = result.redirect;
+                } else {
+                    alert(`خطأ: ${result.error}`);
+                }
+            } catch (error) {
+                alert('فشل الاتصال بالسيرفر');
+            }
+        });
+    </script>
 </body>
 </html>
