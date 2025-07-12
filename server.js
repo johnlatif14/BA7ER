@@ -50,23 +50,24 @@ function writeDB(data) {
 
 // Middleware
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? 'https://ba7er-production.up.railway.app' : '*',
-    credentials: true
+    origin: 'https://ba7er-production.up.railway.app',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 }));
-app.use(helmet());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-strong-secret-key-here',
+    secret: process.env.SESSION_SECRET || 'cbc7c57f08ed14e4ce4bc3e8042395d4ab4f24026fb2a4927e817ec3d8a2a51f',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: process.env.NODE_ENV === 'production',
+        secure: true, // إجبار استخدام HTTPS فقط
         httpOnly: true,
         sameSite: 'strict',
         maxAge: 24 * 60 * 60 * 1000
-    }
+    },
+    store: new (require('connect-pg-simple')(session))({
+        conString: process.env.DATABASE_URL
+    }) // إذا كنت تستخدم PostgreSQL على Railway
 }));
 
 // Rate limiting
@@ -148,14 +149,14 @@ app.get('/api/csrf-token', (req, res) => {
     res.json({ csrfToken: req.csrfToken() });
 });
 
-// Authentication routes
+// Authentication routes - الجزء المعدل
 app.post('/api/login', async (req, res) => {
     try {
-        // التحقق من وجود CSRF token
+        // التحقق من CSRF token أولاً
         if (!req.body._csrf) {
             return res.status(403).json({ 
                 success: false, 
-                error: 'رمز الحماية غير صالح' 
+                error: 'طلب غير مصرح به' 
             });
         }
 
@@ -178,10 +179,20 @@ app.post('/api/login', async (req, res) => {
             });
         }
         
-        req.session.user = user;
-        res.json({ 
-            success: true, 
-            redirect: '/dashboard.html'
+        req.session.regenerate(err => {
+            if (err) {
+                console.error('Session regeneration error:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'خطأ في الخادم' 
+                });
+            }
+            
+            req.session.user = user;
+            res.json({ 
+                success: true, 
+                redirect: '/dashboard.html'
+            });
         });
     } catch (error) {
         console.error('Login error:', error);
