@@ -13,18 +13,21 @@ const nodemailer = require('nodemailer');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 
-// تهيئة Express
+// Initialize Express
 const app = express();
 
-// إجبار استخدام HTTPS في production
+// Enable trust proxy for Railway
+app.enable('trust proxy');
+
+// Force HTTPS in production
 app.use((req, res, next) => {
-    if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] !== 'https') {
+    if (process.env.NODE_ENV === 'production' && !req.secure) {
         return res.redirect('https://' + req.headers.host + req.url);
     }
     next();
 });
 
-// تهيئة قاعدة البيانات JSON
+// Initialize JSON database
 const DB_FILE = path.join(__dirname, 'db.json');
 
 function readDB() {
@@ -48,26 +51,37 @@ function writeDB(data) {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
-// Middleware
+// Basic Middleware
+app.use(helmet());
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// CORS Configuration
 app.use(cors({
     origin: 'https://ba7er-production.up.railway.app',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 }));
+
+// Session Configuration
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'cbc7c57f08ed14e4ce4bc3e8042395d4ab4f24026fb2a4927e817ec3d8a2a51f',
+    secret: process.env.SESSION_SECRET || 'strong-secret-key-123',
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: { 
-        secure: true, // إجبار استخدام HTTPS فقط
+        secure: true,
         httpOnly: true,
-        sameSite: 'strict',
+        sameSite: 'none',
         maxAge: 24 * 60 * 60 * 1000
     },
-    store: new (require('connect-pg-simple')(session))({
-        conString: process.env.DATABASE_URL
-    }) // إذا كنت تستخدم PostgreSQL على Railway
+    store: process.env.DATABASE_URL ? 
+        new (require('connect-pg-simple')(session))({
+            conString: process.env.DATABASE_URL,
+            createTableIfMissing: true
+        }) : null
 }));
 
 // Rate limiting
@@ -77,17 +91,23 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// CSRF protection
+// CSRF Protection
 const csrfProtection = csrf({ 
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: true,
         httpOnly: true,
-        sameSite: 'strict'
+        sameSite: 'none'
     }
 });
 app.use(csrfProtection);
 
-// تهيئة تحميل الملفات
+// Inject CSRF token
+app.use((req, res, next) => {
+    res.locals.csrfToken = req.csrfToken();
+    next();
+});
+
+// File upload configuration
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'public/uploads/');
@@ -98,7 +118,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// تهيئة SMTP
+// SMTP configuration
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: process.env.SMTP_PORT || 587,
@@ -112,19 +132,8 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// اختبار اتصال SMTP
-transporter.verify((error) => {
-    if (error) console.error('SMTP connection error:', error);
-});
-
-// ملفات ثابتة
+// Static files
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Middleware لحقن CSRF token في جميع الاستجابات
-app.use((req, res, next) => {
-    res.locals.csrfToken = req.csrfToken();
-    next();
-});
 
 // Routes
 app.get('/', (req, res) => {
@@ -149,14 +158,13 @@ app.get('/api/csrf-token', (req, res) => {
     res.json({ csrfToken: req.csrfToken() });
 });
 
-// Authentication routes - الجزء المعدل
+// Authentication
 app.post('/api/login', async (req, res) => {
     try {
-        // التحقق من CSRF token أولاً
         if (!req.body._csrf) {
             return res.status(403).json({ 
                 success: false, 
-                error: 'طلب غير مصرح به' 
+                error: 'Invalid CSRF token' 
             });
         }
 
@@ -165,7 +173,7 @@ app.post('/api/login', async (req, res) => {
         if (!username || !password) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'اسم المستخدم وكلمة المرور مطلوبان' 
+                error: 'Username and password are required' 
             });
         }
 
@@ -175,16 +183,16 @@ app.post('/api/login', async (req, res) => {
         if (!user || !bcrypt.compareSync(password, user.password)) {
             return res.status(401).json({ 
                 success: false, 
-                error: 'بيانات الدخول غير صحيحة' 
+                error: 'Invalid credentials' 
             });
         }
         
         req.session.regenerate(err => {
             if (err) {
-                console.error('Session regeneration error:', err);
+                console.error('Session error:', err);
                 return res.status(500).json({ 
                     success: false, 
-                    error: 'خطأ في الخادم' 
+                    error: 'Server error' 
                 });
             }
             
@@ -198,7 +206,7 @@ app.post('/api/login', async (req, res) => {
         console.error('Login error:', error);
         res.status(500).json({ 
             success: false, 
-            error: 'حدث خطأ في الخادم' 
+            error: 'Server error' 
         });
     }
 });
@@ -290,12 +298,12 @@ app.post('/api/contact', async (req, res) => {
         const mailOptions = {
             from: process.env.SMTP_USER,
             to: email,
-            subject: 'تم استلام رسالتك - متجر 𝐵𝒜𝟩𝐸𝑅',
-            text: `مرحباً ${name},\n\nشكراً لتواصلك معنا. لقد تلقينا رسالتك وسنقوم بالرد عليك في أقرب وقت ممكن.\n\nرسالتك:\n${message}\n\nمع تحياتنا,\nفريق 𝐵𝒜𝟩𝐸𝑅`
+            subject: 'Message Received - BA7ER Store',
+            text: `Hello ${name},\n\nThank you for contacting us. We have received your message and will respond soon.\n\nYour message:\n${message}\n\nBest regards,\nBA7ER Team`
         };
         
         await transporter.sendMail(mailOptions);
-        res.json({ success: true, message: 'تم استلام رسالتك بنجاح' });
+        res.json({ success: true, message: 'Message received successfully' });
     } catch (error) {
         console.error('Contact form error:', error);
         res.status(500).json({ success: false, error: 'Server error' });
@@ -322,13 +330,13 @@ app.post('/api/suggestions', async (req, res) => {
             const mailOptions = {
                 from: process.env.SMTP_USER,
                 to: email,
-                subject: 'شكراً لاقتراحك - متجر 𝐵𝒜𝟩𝐸𝑅',
-                text: `نشكرك على مشاركة اقتراحك معنا. سنقوم بدراسته والعمل على تحسين متجرنا بناءً على ملاحظاتك القيمة.\n\nمع تحياتنا,\nفريق 𝐵𝒜𝟩𝐸𝑅`
+                subject: 'Thank You for Your Suggestion',
+                text: `We appreciate your suggestion and will review it carefully.\n\nBest regards,\nBA7ER Team`
             };
             await transporter.sendMail(mailOptions);
         }
         
-        res.json({ success: true, message: 'تم استلام اقتراحك بنجاح' });
+        res.json({ success: true, message: 'Suggestion received successfully' });
     } catch (error) {
         console.error('Suggestion error:', error);
         res.status(500).json({ success: false, error: 'Server error' });
@@ -349,14 +357,14 @@ app.post('/api/send-email', async (req, res) => {
         };
         
         await transporter.sendMail(mailOptions);
-        res.json({ success: true, message: 'تم إرسال البريد الإلكتروني بنجاح' });
+        res.json({ success: true, message: 'Email sent successfully' });
     } catch (error) {
         console.error('Email sending error:', error);
-        res.status(500).json({ success: false, message: 'فشل إرسال البريد الإلكتروني' });
+        res.status(500).json({ success: false, message: 'Failed to send email' });
     }
 });
 
-// Order status update with tracking
+// Order status update
 app.post('/api/orders/:id/status', async (req, res) => {
     try {
         const { id } = req.params;
@@ -378,11 +386,11 @@ app.post('/api/orders/:id/status', async (req, res) => {
             let subject, text;
             
             if (status === 'shipped') {
-                subject = 'تم شحن طلبك - متجر 𝐵𝒜𝟩𝐸𝑅';
-                text = `مرحباً ${order.customerName},\n\nتم شحن طلبك رقم ${order.id}.\n\nرقم التتبع: ${trackingNumber}\n\nمع تحياتنا,\nفريق 𝐵𝒜𝟩𝐸𝑅`;
+                subject = 'Your Order Has Shipped';
+                text = `Hello ${order.customerName},\n\nYour order #${order.id} has shipped.\n\nTracking: ${trackingNumber}\n\nBest regards,\nBA7ER Team`;
             } else {
-                subject = 'تم تسليم طلبك - متجر 𝐵𝒜𝟩𝐸𝑅';
-                text = `مرحباً ${order.customerName},\n\nتم تسليم طلبك رقم ${order.id} بنجاح.\n\nنأمل أن تكون راضياً عن مشترياتك.\n\nمع تحياتنا,\nفريق 𝐵𝒜𝟩𝐸𝑅`;
+                subject = 'Your Order Has Been Delivered';
+                text = `Hello ${order.customerName},\n\nYour order #${order.id} has been delivered.\n\nThank you for shopping with us!\n\nBest regards,\nBA7ER Team`;
             }
             
             await transporter.sendMail({
@@ -395,12 +403,12 @@ app.post('/api/orders/:id/status', async (req, res) => {
         
         res.json({ success: true, order });
     } catch (error) {
-        console.error('Order status update error:', error);
+        console.error('Order status error:', error);
         res.status(500).json({ success: false, error: 'Server error' });
     }
 });
 
-// إنشاء مستخدم مدير إذا لم يوجد
+// Create initial admin
 function createInitialAdmin() {
     const db = readDB();
     const adminExists = db.users.some(u => u.username === 'BA7ER');
@@ -417,11 +425,11 @@ function createInitialAdmin() {
         
         db.users.push(admin);
         writeDB(db);
-        console.log('تم إنشاء المستخدم الإداري الافتراضي');
+        console.log('Initial admin user created');
     }
 }
 
-// بدء الخادم
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
