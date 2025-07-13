@@ -18,8 +18,8 @@ let db = {
   users: [
     {
       id: 1,
-      username: 'admin',
-      password: bcrypt.hashSync('admin123', 10),
+      username: 'ba7er',
+      password: bcrypt.hashSync('Fahd', 10),
       role: 'admin'
     }
   ],

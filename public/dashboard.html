@@ -15,6 +15,9 @@
     .status-pending { background-color: #fef3c7; color: #92400e; }
     .status-shipped { background-color: #dbeafe; color: #1e40af; }
     .status-delivered { background-color: #dcfce7; color: #166534; }
+    .suggestion-pending { background-color: #f3f4f6; }
+    .suggestion-approved { background-color: #dcfce7; }
+    .suggestion-rejected { background-color: #fee2e2; }
   </style>
 </head>
 <body class="bg-gray-100">
@@ -51,8 +54,20 @@
             </a>
           </li>
           <li>
-            <a href="#" class="tab-btn flex items-center p-2 rounded hover:bg-gray-700" data-tab="email">
+            <a href="#" class="tab-btn flex items-center p-2 rounded hover:bg-gray-700" data-tab="suggestions">
+              <i class="fas fa-lightbulb"></i>
+              <span class="sidebar-text mr-3">الاقتراحات</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="tab-btn flex items-center p-2 rounded hover:bg-gray-700" data-tab="contacts">
               <i class="fas fa-envelope"></i>
+              <span class="sidebar-text mr-3">رسائل التواصل</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="tab-btn flex items-center p-2 rounded hover:bg-gray-700" data-tab="email">
+              <i class="fas fa-paper-plane"></i>
               <span class="sidebar-text mr-3">إرسال بريد</span>
             </a>
           </li>
@@ -192,6 +207,60 @@
           </div>
         </div>
 
+        <!-- Suggestions Tab -->
+        <div id="suggestionsTab" class="tab-content">
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 class="text-xl font-bold">اقتراحات العملاء</h2>
+              <select id="suggestionFilter" class="border border-gray-300 rounded px-3 py-1 bg-white">
+                <option value="all">جميع الاقتراحات</option>
+                <option value="pending">قيد المراجعة</option>
+                <option value="approved">مقبولة</option>
+                <option value="rejected">مرفوضة</option>
+              </select>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-3 text-right">الاسم</th>
+                    <th class="px-4 py-3 text-right">البريد الإلكتروني</th>
+                    <th class="px-4 py-3 text-right">الاقتراح</th>
+                    <th class="px-4 py-3 text-right">التصميم</th>
+                    <th class="px-4 py-3 text-right">الحالة</th>
+                    <th class="px-4 py-3 text-right">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody id="suggestionsTable" class="bg-white divide-y divide-gray-200"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contacts Tab -->
+        <div id="contactsTab" class="tab-content">
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="p-4 border-b border-gray-200">
+              <h2 class="text-xl font-bold">رسائل التواصل</h2>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-3 text-right">الاسم</th>
+                    <th class="px-4 py-3 text-right">البريد الإلكتروني</th>
+                    <th class="px-4 py-3 text-right">الموضوع</th>
+                    <th class="px-4 py-3 text-right">الرسالة</th>
+                    <th class="px-4 py-3 text-right">التاريخ</th>
+                    <th class="px-4 py-3 text-right">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody id="contactsTable" class="bg-white divide-y divide-gray-200"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- Email Tab -->
         <div id="emailTab" class="tab-content">
           <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -225,6 +294,113 @@
     </div>
   </div>
 
+  <!-- Add Product Modal -->
+  <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold" id="productModalTitle">إضافة منتج جديد</h3>
+        <button id="closeProductModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <form id="productForm" enctype="multipart/form-data">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block mb-2">اسم المنتج</label>
+            <input type="text" name="name" class="w-full border border-gray-300 rounded px-3 py-2" required>
+          </div>
+          <div>
+            <label class="block mb-2">السعر (جنيه)</label>
+            <input type="number" name="price" step="0.01" class="w-full border border-gray-300 rounded px-3 py-2" required>
+          </div>
+          <div>
+            <label class="block mb-2">المقاسات (افصل بفاصلة)</label>
+            <input type="text" name="sizes" value="S,M,L,XL,OS" class="w-full border border-gray-300 rounded px-3 py-2" required>
+          </div>
+          <div>
+            <label class="block mb-2">الكمية المتاحة</label>
+            <input type="number" name="stock" class="w-full border border-gray-300 rounded px-3 py-2" required>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block mb-2">صورة المنتج</label>
+            <input type="file" name="image" accept="image/*" class="w-full border border-gray-300 rounded px-3 py-2" required>
+          </div>
+        </div>
+        <div class="mt-6 flex justify-end space-x-3">
+          <button type="button" id="cancelProduct" class="px-4 py-2 border border-gray-300 rounded">إلغاء</button>
+          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">حفظ المنتج</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- View Suggestion Modal -->
+  <div id="suggestionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold">تفاصيل الاقتراح</h3>
+        <button id="closeSuggestionModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block font-medium">الاسم:</label>
+          <p id="suggestionName" class="mt-1"></p>
+        </div>
+        <div>
+          <label class="block font-medium">البريد الإلكتروني:</label>
+          <p id="suggestionEmail" class="mt-1"></p>
+        </div>
+        <div>
+          <label class="block font-medium">الاقتراح:</label>
+          <p id="suggestionText" class="mt-1"></p>
+        </div>
+        <div>
+          <label class="block font-medium">التصميم:</label>
+          <img id="suggestionDesign" src="" class="mt-2 max-w-full h-auto rounded border border-gray-200 hidden">
+        </div>
+        <div class="flex space-x-3 mt-6">
+          <button id="rejectSuggestion" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">رفض</button>
+          <button id="approveSuggestion" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">قبول</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Contact Modal -->
+  <div id="contactModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold">تفاصيل الرسالة</h3>
+        <button id="closeContactModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block font-medium">الاسم:</label>
+          <p id="contactName" class="mt-1"></p>
+        </div>
+        <div>
+          <label class="block font-medium">البريد الإلكتروني:</label>
+          <p id="contactEmail" class="mt-1"></p>
+        </div>
+        <div>
+          <label class="block font-medium">الموضوع:</label>
+          <p id="contactSubject" class="mt-1"></p>
+        </div>
+        <div>
+          <label class="block font-medium">الرسالة:</label>
+          <p id="contactMessage" class="mt-1"></p>
+        </div>
+        <div class="mt-6">
+          <button id="replyContact" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">رد</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // DOM Elements
     const sidebar = document.getElementById('sidebar');
@@ -234,8 +410,19 @@
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     const orderFilter = document.getElementById('orderFilter');
+    const suggestionFilter = document.getElementById('suggestionFilter');
     const addProductBtn = document.getElementById('addProductBtn');
     const emailForm = document.getElementById('emailForm');
+    const productForm = document.getElementById('productForm');
+
+    // Modal Elements
+    const productModal = document.getElementById('productModal');
+    const closeProductModal = document.getElementById('closeProductModal');
+    const cancelProduct = document.getElementById('cancelProduct');
+    const suggestionModal = document.getElementById('suggestionModal');
+    const closeSuggestionModal = document.getElementById('closeSuggestionModal');
+    const contactModal = document.getElementById('contactModal');
+    const closeContactModal = document.getElementById('closeContactModal');
 
     // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
@@ -246,6 +433,8 @@
       await loadDashboardData();
       await loadOrders();
       await loadProducts();
+      await loadSuggestions();
+      await loadContacts();
 
       // Event Listeners
       toggleSidebar.addEventListener('click', () => {
@@ -275,6 +464,48 @@
 
       orderFilter.addEventListener('change', () => {
         loadOrders();
+      });
+
+      suggestionFilter.addEventListener('change', () => {
+        loadSuggestions();
+      });
+
+      addProductBtn.addEventListener('click', () => {
+        document.getElementById('productModalTitle').textContent = 'إضافة منتج جديد';
+        productModal.classList.remove('hidden');
+      });
+
+      closeProductModal.addEventListener('click', () => {
+        productModal.classList.add('hidden');
+      });
+
+      cancelProduct.addEventListener('click', () => {
+        productModal.classList.add('hidden');
+      });
+
+      productForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(productForm);
+        
+        try {
+          const response = await fetch('/api/products', {
+            method: 'POST',
+            body: formData
+          });
+          
+          const result = await response.json();
+          if (result.success) {
+            alert('تم إضافة المنتج بنجاح');
+            productModal.classList.add('hidden');
+            productForm.reset();
+            await loadProducts();
+          } else {
+            alert('حدث خطأ: ' + result.message);
+          }
+        } catch (error) {
+          alert('حدث خطأ في الاتصال بالخادم');
+          console.error(error);
+        }
       });
 
       emailForm.addEventListener('submit', async (e) => {
@@ -320,17 +551,28 @@
           content.classList.add('active');
         }
       });
+
+      // Update page title
+      const activeTab = document.querySelector('.tab-btn.active');
+      if (activeTab) {
+        const tabName = activeTab.querySelector('.sidebar-text').textContent;
+        document.getElementById('pageTitle').textContent = tabName;
+      }
     }
 
     async function loadDashboardData() {
       try {
-        const [ordersRes, productsRes] = await Promise.all([
+        const [ordersRes, productsRes, suggestionsRes, contactsRes] = await Promise.all([
           fetch('/api/orders'),
-          fetch('/api/products')
+          fetch('/api/products'),
+          fetch('/api/suggestions'),
+          fetch('/api/contacts')
         ]);
         
         const orders = await ordersRes.json();
         const products = await productsRes.json();
+        const suggestions = await suggestionsRes.json();
+        const contacts = await contactsRes.json();
         
         document.getElementById('totalOrders').textContent = orders.length;
         document.getElementById('newOrders').textContent = orders.filter(o => o.status === 'pending').length;
@@ -422,10 +664,246 @@
           </tr>
         `).join('');
         document.getElementById('productsTable').innerHTML = productsHtml;
+
+        // Add event listeners for product actions
+        document.querySelectorAll('.edit-product').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const productId = e.currentTarget.getAttribute('data-id');
+            await openEditProductModal(productId);
+          });
+        });
+
+        document.querySelectorAll('.delete-product').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const productId = e.currentTarget.getAttribute('data-id');
+            if (confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+              await deleteProduct(productId);
+            }
+          });
+        });
       } catch (error) {
         console.error('Error loading products:', error);
       }
     }
+
+    async function openEditProductModal(productId) {
+      try {
+        const res = await fetch(`/api/products/${productId}`);
+        const product = await res.json();
+        
+        document.getElementById('productModalTitle').textContent = 'تعديل المنتج';
+        productForm.querySelector('[name="name"]').value = product.name;
+        productForm.querySelector('[name="price"]').value = product.price;
+        productForm.querySelector('[name="sizes"]').value = product.sizes.join(',');
+        productForm.querySelector('[name="stock"]').value = product.stock;
+        productForm.querySelector('[name="image"]').required = false;
+        
+        // Store product ID for update
+        productForm.dataset.productId = productId;
+        
+        productModal.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error opening edit modal:', error);
+        alert('حدث خطأ أثناء تحميل بيانات المنتج');
+      }
+    }
+
+    async function deleteProduct(productId) {
+      try {
+        const res = await fetch(`/api/products/${productId}`, {
+          method: 'DELETE'
+        });
+        const result = await res.json();
+        
+        if (result.success) {
+          alert('تم حذف المنتج بنجاح');
+          await loadProducts();
+        } else {
+          alert('حدث خطأ: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        alert('حدث خطأ في الاتصال بالخادم');
+      }
+    }
+
+    async function loadSuggestions() {
+      try {
+        const status = suggestionFilter.value;
+        const url = status === 'all' ? '/api/suggestions' : `/api/suggestions?status=${status}`;
+        const res = await fetch(url);
+        const suggestions = await res.json();
+        
+        const suggestionsHtml = suggestions.map(suggestion => `
+          <tr class="suggestion-${suggestion.status}">
+            <td class="px-4 py-3">${suggestion.name}</td>
+            <td class="px-4 py-3">${suggestion.email}</td>
+            <td class="px-4 py-3">${suggestion.suggestion.substring(0, 50)}${suggestion.suggestion.length > 50 ? '...' : ''}</td>
+            <td class="px-4 py-3">${suggestion.design ? 'نعم' : 'لا'}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-1 rounded-full text-xs">
+                ${getSuggestionStatusText(suggestion.status)}
+              </span>
+            </td>
+            <td class="px-4 py-3">
+              <button class="view-suggestion p-1 text-blue-600 hover:text-blue-800" data-id="${suggestion.id}">
+                <i class="fas fa-eye"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+        document.getElementById('suggestionsTable').innerHTML = suggestionsHtml;
+
+        // Add event listeners for suggestion actions
+        document.querySelectorAll('.view-suggestion').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const suggestionId = e.currentTarget.getAttribute('data-id');
+            await openSuggestionModal(suggestionId);
+          });
+        });
+      } catch (error) {
+        console.error('Error loading suggestions:', error);
+      }
+    }
+
+    function getSuggestionStatusText(status) {
+      switch(status) {
+        case 'pending': return 'قيد المراجعة';
+        case 'approved': return 'مقبول';
+        case 'rejected': return 'مرفوض';
+        default: return status;
+      }
+    }
+
+    async function openSuggestionModal(suggestionId) {
+      try {
+        const res = await fetch(`/api/suggestions/${suggestionId}`);
+        const suggestion = await res.json();
+        
+        document.getElementById('suggestionName').textContent = suggestion.name;
+        document.getElementById('suggestionEmail').textContent = suggestion.email;
+        document.getElementById('suggestionText').textContent = suggestion.suggestion;
+        
+        const designImg = document.getElementById('suggestionDesign');
+        if (suggestion.design) {
+          designImg.src = `/uploads/${suggestion.design}`;
+          designImg.classList.remove('hidden');
+        } else {
+          designImg.classList.add('hidden');
+        }
+        
+        // Store suggestion ID for actions
+        suggestionModal.dataset.suggestionId = suggestionId;
+        
+        suggestionModal.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error opening suggestion modal:', error);
+        alert('حدث خطأ أثناء تحميل بيانات الاقتراح');
+      }
+    }
+
+    async function loadContacts() {
+      try {
+        const res = await fetch('/api/contacts');
+        const contacts = await res.json();
+        
+        const contactsHtml = contacts.map(contact => `
+          <tr>
+            <td class="px-4 py-3">${contact.name}</td>
+            <td class="px-4 py-3">${contact.email}</td>
+            <td class="px-4 py-3">${contact.subject}</td>
+            <td class="px-4 py-3">${contact.message.substring(0, 50)}${contact.message.length > 50 ? '...' : ''}</td>
+            <td class="px-4 py-3">${new Date(contact.createdAt).toLocaleDateString('ar-EG')}</td>
+            <td class="px-4 py-3">
+              <button class="view-contact p-1 text-blue-600 hover:text-blue-800" data-id="${contact.id}">
+                <i class="fas fa-eye"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+        document.getElementById('contactsTable').innerHTML = contactsHtml;
+
+        // Add event listeners for contact actions
+        document.querySelectorAll('.view-contact').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const contactId = e.currentTarget.getAttribute('data-id');
+            await openContactModal(contactId);
+          });
+        });
+      } catch (error) {
+        console.error('Error loading contacts:', error);
+      }
+    }
+
+    async function openContactModal(contactId) {
+      try {
+        const res = await fetch(`/api/contacts/${contactId}`);
+        const contact = await res.json();
+        
+        document.getElementById('contactName').textContent = contact.name;
+        document.getElementById('contactEmail').textContent = contact.email;
+        document.getElementById('contactSubject').textContent = contact.subject;
+        document.getElementById('contactMessage').textContent = contact.message;
+        
+        // Store contact ID for reply
+        contactModal.dataset.contactId = contactId;
+        contactModal.dataset.contactEmail = contact.email;
+        
+        contactModal.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error opening contact modal:', error);
+        alert('حدث خطأ أثناء تحميل بيانات الرسالة');
+      }
+    }
+
+    // Suggestion Modal Actions
+    document.getElementById('approveSuggestion').addEventListener('click', async () => {
+      const suggestionId = suggestionModal.dataset.suggestionId;
+      await updateSuggestionStatus(suggestionId, 'approved');
+    });
+
+    document.getElementById('rejectSuggestion').addEventListener('click', async () => {
+      const suggestionId = suggestionModal.dataset.suggestionId;
+      await updateSuggestionStatus(suggestionId, 'rejected');
+    });
+
+    async function updateSuggestionStatus(suggestionId, status) {
+      try {
+        const res = await fetch(`/api/suggestions/${suggestionId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        const result = await res.json();
+        
+        if (result.success) {
+          alert(`تم ${status === 'approved' ? 'قبول' : 'رفض'} الاقتراح بنجاح`);
+          suggestionModal.classList.add('hidden');
+          await loadSuggestions();
+        } else {
+          alert('حدث خطأ: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Error updating suggestion:', error);
+        alert('حدث خطأ في الاتصال بالخادم');
+      }
+    }
+
+    // Contact Modal Actions
+    document.getElementById('replyContact').addEventListener('click', () => {
+      const email = contactModal.dataset.contactEmail;
+      contactModal.classList.add('hidden');
+      switchTab('email');
+      document.querySelector('#emailForm [name="to"]').value = email;
+    });
+
+    closeSuggestionModal.addEventListener('click', () => {
+      suggestionModal.classList.add('hidden');
+    });
+
+    closeContactModal.addEventListener('click', () => {
+      contactModal.classList.add('hidden');
+    });
   </script>
 </body>
 </html>
