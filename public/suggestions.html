@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الاقتراحات - متجر 𝐵𝒜𝟩𝐸𝑅</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .sidebar {
+      min-height: 100vh;
+      position: fixed;
+      width: 250px;
+    }
+    .main-content {
+      margin-right: 250px;
+    }
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        position: relative;
+      }
+      .main-content {
+        margin-right: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar bg-dark text-white p-3">
+    <h2 class="text-center mb-4">𝐵𝒜𝟩𝐸𝑅</h2>
+    <ul class="nav flex-column">
+      <li class="nav-item">
+        <a class="nav-link" href="/"><i class="fas fa-home me-2"></i>الصفحة الرئيسية</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/contact.html"><i class="fas fa-envelope me-2"></i>اتصل بنا</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/suggestions.html"><i class="fas fa-lightbulb me-2"></i>الاقتراحات</a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content p-4">
+    <div class="container">
+      <h1 class="text-center mb-5">شاركنا اقتراحاتك</h1>
+      
+      <div class="row justify-content-center">
+        <div class="col-md-8">
+          <form id="suggestionForm" class="needs-validation" novalidate>
+            <div class="mb-3">
+              <label for="name" class="form-label">الاسم</label>
+              <input type="text" class="form-control" id="name" required>
+              <div class="invalid-feedback">الرجاء إدخال اسمك</div>
+            </div>
+            <div class="mb-3">
+              <label for="email" class="form-label">البريد الإلكتروني</label>
+              <input type="email" class="form-control" id="email" required>
+              <div class="invalid-feedback">الرجاء إدخال بريد إلكتروني صحيح</div>
+            </div>
+            <div class="mb-3">
+              <label for="suggestion" class="form-label">اقتراحك</label>
+              <textarea class="form-control" id="suggestion" rows="5" required></textarea>
+              <div class="invalid-feedback">الرجاء إدخال اقتراحك</div>
+            </div>
+            <div class="mb-3">
+              <label for="design" class="form-label">تصميم مقترح (اختياري)</label>
+              <input type="file" class="form-control" id="design" accept="image/*">
+            </div>
+            <button type="submit" class="btn btn-primary">إرسال الاقتراح</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('suggestionForm');
+      
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        if (!form.checkValidity()) {
+          e.stopPropagation();
+          form.classList.add('was-validated');
+          return;
+        }
+        
+        const formData = new FormData();
+        formData.append('name', document.getElementById('name').value);
+        formData.append('email', document.getElementById('email').value);
+        formData.append('suggestion', document.getElementById('suggestion').value);
+        
+        const designFile = document.getElementById('design').files[0];
+        if (designFile) {
+          formData.append('design', designFile);
+        }
+        
+        try {
+          const response = await fetch('/api/suggestions', {
+            method: 'POST',
+            body: formData
+          });
+          
+          const result = await response.json();
+          if (result.success) {
+            alert('شكراً لك على اقتراحك! سنقوم بدراسته بعناية.');
+            form.reset();
+            form.classList.remove('was-validated');
+          } else {
+            alert('حدث خطأ أثناء إرسال الاقتراح: ' + result.message);
+          }
+        } catch (error) {
+          alert('حدث خطأ في الاتصال بالخادم.');
+          console.error(error);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
