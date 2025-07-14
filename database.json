@@ -1,0 +1,14 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "ba7er",
+      "password": "$2a$10$EXAMPLEHASHEDPASSWORD",
+      "role": "admin"
+    }
+  ],
+  "products": [],
+  "orders": [],
+  "contacts": [],
+  "suggestions": []
+}

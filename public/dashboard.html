@@ -7,9 +7,22 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    .sidebar { transition: all 0.3s ease; width: 250px; }
-    .sidebar.collapsed { width: 80px; }
+    .sidebar { 
+      transition: all 0.3s ease; 
+      width: 250px;
+      position: fixed;
+      height: 100vh;
+      z-index: 1000;
+    }
+    .sidebar.collapsed { width: 70px; }
     .sidebar.collapsed .sidebar-text { display: none; }
+    .main-content {
+      margin-right: 250px;
+      transition: margin-right 0.3s ease;
+    }
+    .sidebar.collapsed + .main-content {
+      margin-right: 70px;
+    }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .status-pending { background-color: #fef3c7; color: #92400e; }
@@ -18,10 +31,40 @@
     .suggestion-pending { background-color: #f3f4f6; }
     .suggestion-approved { background-color: #dcfce7; }
     .suggestion-rejected { background-color: #fee2e2; }
+    
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 70px;
+      }
+      .sidebar:not(.collapsed) {
+        width: 250px;
+      }
+      .main-content {
+        margin-right: 70px;
+      }
+      .sidebar:not(.collapsed) + .main-content {
+        margin-right: 250px;
+      }
+    }
+    
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
   </style>
 </head>
 <body class="bg-gray-100">
-  <div class="flex h-screen">
+  <div class="flex">
     <!-- Sidebar -->
     <div id="sidebar" class="sidebar bg-gray-800 text-white flex-shrink-0">
       <div class="p-4 flex items-center justify-between border-b border-gray-700">
@@ -42,7 +85,7 @@
             </a>
           </li>
           <li>
-            <a href="#" class="tab-btn flex items-center p-2 rounded hover:bg-gray-700" data-tab="orders">
+            <a href="orders" class="tab-btn flex items-center p-2 rounded hover:bg-gray-700" data-tab="orders">
               <i class="fas fa-tshirt"></i>
               <span class="sidebar-text mr-3">الطلبات</span>
             </a>
@@ -83,20 +126,21 @@
 
     <!-- Main Content -->
     <div class="main-content flex-1 overflow-auto">
-      <header class="bg-white shadow-sm p-4 flex justify-between items-center">
+      <header class="bg-white shadow-sm p-4 flex justify-between items-center sticky top-0 z-50">
         <div class="flex items-center">
           <button id="mobileToggleSidebar" class="mr-4 p-2 rounded-full bg-gray-200 md:hidden">
             <i class="fas fa-bars"></i>
           </button>
           <h1 class="text-xl font-bold" id="pageTitle">لوحة التحكم</h1>
         </div>
+        <div class="text-sm text-gray-600" id="currentDate"></div>
       </header>
 
       <main class="p-4">
         <!-- Dashboard Tab -->
         <div id="dashboardTab" class="tab-content active">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div class="bg-white rounded-lg shadow p-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4">
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-gray-500">إجمالي الطلبات</p>
@@ -107,7 +151,7 @@
                 </div>
               </div>
             </div>
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="bg-white rounded-lg shadow p-4">
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-gray-500">طلبات جديدة</p>
@@ -118,7 +162,7 @@
                 </div>
               </div>
             </div>
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="bg-white rounded-lg shadow p-4">
               <div class="flex items-center justify-between">
                 <div>
                   <p class="text-gray-500">المنتجات</p>
@@ -131,20 +175,41 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-bold mb-4">آخر الطلبات</h2>
+          <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <h2 class="text-lg font-bold mb-3">إحصائيات المبيعات</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-medium mb-2">أعلى المنتجات مبيعاً</h3>
+                <div id="topProducts" class="space-y-2">
+                  <!-- سيتم ملؤها بالبيانات -->
+                </div>
+              </div>
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="font-medium mb-2">إجمالي المبيعات</h3>
+                <div id="salesSummary" class="space-y-2">
+                  <!-- سيتم ملؤها بالبيانات -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex justify-between items-center mb-3">
+              <h2 class="text-lg font-bold">آخر الطلبات</h2>
+              <a href="#" class="text-blue-600 text-sm" onclick="switchTab('orders')">عرض الكل</a>
+            </div>
             <div class="overflow-x-auto">
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th class="px-4 py-3 text-right">رقم الطلب</th>
-                    <th class="px-4 py-3 text-right">العميل</th>
-                    <th class="px-4 py-3 text-right">المبلغ</th>
-                    <th class="px-4 py-3 text-right">الحالة</th>
-                    <th class="px-4 py-3 text-right">التاريخ</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">رقم الطلب</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">العميل</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">المبلغ</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الحالة</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">التاريخ</th>
                   </tr>
                 </thead>
-                <tbody id="recentOrders" class="bg-white divide-y divide-gray-200"></tbody>
+                <tbody id="recentOrders" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
               </table>
             </div>
           </div>
@@ -153,29 +218,41 @@
         <!-- Orders Tab -->
         <div id="ordersTab" class="tab-content">
           <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 class="text-xl font-bold">إدارة الطلبات</h2>
-              <select id="orderFilter" class="border border-gray-300 rounded px-3 py-1 bg-white">
-                <option value="all">جميع الطلبات</option>
-                <option value="pending">قيد الانتظار</option>
-                <option value="shipped">تم الشحن</option>
-                <option value="delivered">تم التسليم</option>
-              </select>
+            <div class="p-3 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <h2 class="text-lg font-bold">إدارة الطلبات</h2>
+              <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <select id="orderFilter" class="border border-gray-300 rounded px-3 py-1 bg-white text-sm w-full sm:w-auto">
+                  <option value="all">جميع الطلبات</option>
+                  <option value="pending">قيد الانتظار</option>
+                  <option value="shipped">تم الشحن</option>
+                  <option value="delivered">تم التسليم</option>
+                </select>
+                <button id="exportOrders" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">
+                  <i class="fas fa-file-export mr-1"></i>تصدير
+                </button>
+              </div>
             </div>
             <div class="overflow-x-auto">
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th class="px-4 py-3 text-right">رقم الطلب</th>
-                    <th class="px-4 py-3 text-right">العميل</th>
-                    <th class="px-4 py-3 text-right">المنتجات</th>
-                    <th class="px-4 py-3 text-right">المبلغ</th>
-                    <th class="px-4 py-3 text-right">الحالة</th>
-                    <th class="px-4 py-3 text-right">الإجراءات</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">رقم الطلب</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">العميل</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">المنتجات</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">المبلغ</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الحالة</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody id="ordersTable" class="bg-white divide-y divide-gray-200"></tbody>
+                <tbody id="ordersTable" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
               </table>
+            </div>
+            <div class="p-3 border-t border-gray-200 flex justify-between items-center">
+              <div class="text-sm text-gray-600" id="ordersCount">عرض 0 من 0 طلبات</div>
+              <div class="flex space-x-2">
+                <button id="prevPage" class="px-3 py-1 border rounded disabled:opacity-50">&lt;</button>
+                <button id="nextPage" class="px-3 py-1 border rounded disabled:opacity-50">&gt;</button>
+              </div>
             </div>
           </div>
         </div>
@@ -183,25 +260,30 @@
         <!-- Products Tab -->
         <div id="productsTab" class="tab-content">
           <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 class="text-xl font-bold">إدارة المنتجات</h2>
-              <button id="addProductBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                <i class="fas fa-plus mr-2"></i>إضافة منتج
-              </button>
+            <div class="p-3 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <h2 class="text-lg font-bold">إدارة المنتجات</h2>
+              <div class="flex gap-2 w-full sm:w-auto">
+                <button id="addProductBtn" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm">
+                  <i class="fas fa-plus mr-1"></i>إضافة منتج
+                </button>
+                <button id="refreshProducts" class="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 text-sm">
+                  <i class="fas fa-sync-alt mr-1"></i>تحديث
+                </button>
+              </div>
             </div>
             <div class="overflow-x-auto">
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th class="px-4 py-3 text-right">الصورة</th>
-                    <th class="px-4 py-3 text-right">اسم المنتج</th>
-                    <th class="px-4 py-3 text-right">السعر</th>
-                    <th class="px-4 py-3 text-right">المقاسات</th>
-                    <th class="px-4 py-3 text-right">المخزون</th>
-                    <th class="px-4 py-3 text-right">الإجراءات</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الصورة</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">اسم المنتج</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">السعر</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">المقاسات</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">المخزون</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody id="productsTable" class="bg-white divide-y divide-gray-200"></tbody>
+                <tbody id="productsTable" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
               </table>
             </div>
           </div>
@@ -210,9 +292,9 @@
         <!-- Suggestions Tab -->
         <div id="suggestionsTab" class="tab-content">
           <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 class="text-xl font-bold">اقتراحات العملاء</h2>
-              <select id="suggestionFilter" class="border border-gray-300 rounded px-3 py-1 bg-white">
+            <div class="p-3 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <h2 class="text-lg font-bold">اقتراحات العملاء</h2>
+              <select id="suggestionFilter" class="border border-gray-300 rounded px-3 py-1 bg-white text-sm w-full sm:w-auto">
                 <option value="all">جميع الاقتراحات</option>
                 <option value="pending">قيد المراجعة</option>
                 <option value="approved">مقبولة</option>
@@ -223,15 +305,15 @@
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th class="px-4 py-3 text-right">الاسم</th>
-                    <th class="px-4 py-3 text-right">البريد الإلكتروني</th>
-                    <th class="px-4 py-3 text-right">الاقتراح</th>
-                    <th class="px-4 py-3 text-right">التصميم</th>
-                    <th class="px-4 py-3 text-right">الحالة</th>
-                    <th class="px-4 py-3 text-right">الإجراءات</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الاسم</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">البريد الإلكتروني</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الاقتراح</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">التصميم</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الحالة</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody id="suggestionsTable" class="bg-white divide-y divide-gray-200"></tbody>
+                <tbody id="suggestionsTable" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
               </table>
             </div>
           </div>
@@ -240,22 +322,22 @@
         <!-- Contacts Tab -->
         <div id="contactsTab" class="tab-content">
           <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="p-4 border-b border-gray-200">
-              <h2 class="text-xl font-bold">رسائل التواصل</h2>
+            <div class="p-3 border-b border-gray-200">
+              <h2 class="text-lg font-bold">رسائل التواصل</h2>
             </div>
             <div class="overflow-x-auto">
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th class="px-4 py-3 text-right">الاسم</th>
-                    <th class="px-4 py-3 text-right">البريد الإلكتروني</th>
-                    <th class="px-4 py-3 text-right">الموضوع</th>
-                    <th class="px-4 py-3 text-right">الرسالة</th>
-                    <th class="px-4 py-3 text-right">التاريخ</th>
-                    <th class="px-4 py-3 text-right">الإجراءات</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الاسم</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">البريد الإلكتروني</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الموضوع</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الرسالة</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">التاريخ</th>
+                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody id="contactsTable" class="bg-white divide-y divide-gray-200"></tbody>
+                <tbody id="contactsTable" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
               </table>
             </div>
           </div>
@@ -264,29 +346,29 @@
         <!-- Email Tab -->
         <div id="emailTab" class="tab-content">
           <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="p-4 border-b border-gray-200">
-              <h2 class="text-xl font-bold">إرسال بريد إلكتروني</h2>
+            <div class="p-3 border-b border-gray-200">
+              <h2 class="text-lg font-bold">إرسال بريد إلكتروني</h2>
             </div>
-            <div class="p-4">
-              <form id="emailForm" class="space-y-4">
+            <div class="p-3">
+              <form id="emailForm" class="space-y-3">
                 <input type="hidden" id="csrfToken" name="_csrf">
                 <div>
-                  <label class="block mb-2">إلى:</label>
-                  <input type="email" name="to" class="w-full border border-gray-300 rounded px-3 py-2" required>
+                  <label class="block mb-1 text-sm">إلى:</label>
+                  <input type="email" name="to" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required>
                 </div>
                 <div>
-                  <label class="block mb-2">الموضوع:</label>
-                  <input type="text" name="subject" class="w-full border border-gray-300 rounded px-3 py-2" required>
+                  <label class="block mb-1 text-sm">الموضوع:</label>
+                  <input type="text" name="subject" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required>
                 </div>
                 <div>
-                  <label class="block mb-2">الرسالة:</label>
-                  <textarea name="text" rows="5" class="w-full border border-gray-300 rounded px-3 py-2" required></textarea>
+                  <label class="block mb-1 text-sm">الرسالة:</label>
+                  <textarea name="text" rows="5" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required></textarea>
                 </div>
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                  <i class="fas fa-paper-plane mr-2"></i>إرسال
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
+                  <i class="fas fa-paper-plane mr-1"></i>إرسال
                 </button>
               </form>
-              <div id="emailResult" class="mt-4 hidden"></div>
+              <div id="emailResult" class="mt-3 hidden"></div>
             </div>
           </div>
         </div>
@@ -294,109 +376,134 @@
     </div>
   </div>
 
-  <!-- Add Product Modal -->
-  <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-    <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold" id="productModalTitle">إضافة منتج جديد</h3>
+  <!-- Add/Edit Product Modal -->
+  <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+    <div class="bg-white rounded-lg p-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-bold" id="productModalTitle">إضافة منتج جديد</h3>
         <button id="closeProductModal" class="text-gray-500 hover:text-gray-700">
           <i class="fas fa-times"></i>
         </button>
       </div>
       <form id="productForm" enctype="multipart/form-data">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label class="block mb-2">اسم المنتج</label>
-            <input type="text" name="name" class="w-full border border-gray-300 rounded px-3 py-2" required>
+            <label class="block mb-1 text-sm">اسم المنتج</label>
+            <input type="text" name="name" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required>
           </div>
           <div>
-            <label class="block mb-2">السعر (جنيه)</label>
-            <input type="number" name="price" step="0.01" class="w-full border border-gray-300 rounded px-3 py-2" required>
+            <label class="block mb-1 text-sm">السعر (جنيه)</label>
+            <input type="number" name="price" step="0.01" min="0" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required>
           </div>
           <div>
-            <label class="block mb-2">المقاسات (افصل بفاصلة)</label>
-            <input type="text" name="sizes" value="S,M,L,XL,OS" class="w-full border border-gray-300 rounded px-3 py-2" required>
+            <label class="block mb-1 text-sm">المقاسات (افصل بفاصلة)</label>
+            <input type="text" name="sizes" value="S,M,L,XL,OS" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required>
           </div>
           <div>
-            <label class="block mb-2">الكمية المتاحة</label>
-            <input type="number" name="stock" class="w-full border border-gray-300 rounded px-3 py-2" required>
+            <label class="block mb-1 text-sm">الكمية المتاحة</label>
+            <input type="number" name="stock" min="0" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required>
           </div>
           <div class="md:col-span-2">
-            <label class="block mb-2">صورة المنتج</label>
-            <input type="file" name="image" accept="image/*" class="w-full border border-gray-300 rounded px-3 py-2" required>
+            <label class="block mb-1 text-sm">صورة المنتج</label>
+            <input type="file" name="image" accept="image/*" class="w-full border border-gray-300 rounded px-3 py-1 text-sm file:mr-2 file:py-1 file:px-3 file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" id="productImageInput">
+            <div class="mt-2 hidden" id="imagePreviewContainer">
+              <img id="imagePreview" src="#" alt="Preview" class="max-h-40 rounded border border-gray-200">
+            </div>
           </div>
         </div>
-        <div class="mt-6 flex justify-end space-x-3">
-          <button type="button" id="cancelProduct" class="px-4 py-2 border border-gray-300 rounded">إلغاء</button>
-          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">حفظ المنتج</button>
+        <div class="mt-4 flex justify-end space-x-2">
+          <button type="button" id="cancelProduct" class="px-3 py-1 border border-gray-300 rounded text-sm">إلغاء</button>
+          <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm">حفظ المنتج</button>
         </div>
       </form>
     </div>
   </div>
 
+  <!-- View Order Modal -->
+  <div id="orderModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+    <div class="bg-white rounded-lg p-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-bold">تفاصيل الطلب</h3>
+        <button id="closeOrderModal" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="orderDetails" class="space-y-3">
+        <!-- سيتم ملؤها بالبيانات -->
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button id="closeOrderModalBtn" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
   <!-- View Suggestion Modal -->
-  <div id="suggestionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-    <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold">تفاصيل الاقتراح</h3>
+  <div id="suggestionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+    <div class="bg-white rounded-lg p-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-bold">تفاصيل الاقتراح</h3>
         <button id="closeSuggestionModal" class="text-gray-500 hover:text-gray-700">
           <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="space-y-4">
+      <div class="space-y-3">
         <div>
-          <label class="block font-medium">الاسم:</label>
-          <p id="suggestionName" class="mt-1"></p>
-        </div>
-        <div>
-          <label class="block font-medium">البريد الإلكتروني:</label>
-          <p id="suggestionEmail" class="mt-1"></p>
+          <label class="block font-medium text-sm">الاسم:</label>
+          <p id="suggestionName" class="mt-1 text-sm"></p>
         </div>
         <div>
-          <label class="block font-medium">الاقتراح:</label>
-          <p id="suggestionText" class="mt-1"></p>
+          <label class="block font-medium text-sm">البريد الإلكتروني:</label>
+          <p id="suggestionEmail" class="mt-1 text-sm"></p>
         </div>
         <div>
-          <label class="block font-medium">التصميم:</label>
-          <img id="suggestionDesign" src="" class="mt-2 max-w-full h-auto rounded border border-gray-200 hidden">
+          <label class="block font-medium text-sm">الاقتراح:</label>
+          <p id="suggestionText" class="mt-1 text-sm whitespace-pre-line"></p>
         </div>
-        <div class="flex space-x-3 mt-6">
-          <button id="rejectSuggestion" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">رفض</button>
-          <button id="approveSuggestion" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">قبول</button>
+        <div>
+          <label class="block font-medium text-sm">التصميم:</label>
+          <img id="suggestionDesign" src="" class="mt-1 max-w-full h-auto rounded border border-gray-200 hidden">
         </div>
+      </div>
+      <div class="mt-4 flex justify-between">
+        <div class="flex space-x-2">
+          <button id="rejectSuggestion" class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">رفض</button>
+          <button id="approveSuggestion" class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm">قبول</button>
+        </div>
+        <button id="closeSuggestionModalBtn" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">إغلاق</button>
       </div>
     </div>
   </div>
 
   <!-- View Contact Modal -->
-  <div id="contactModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
-    <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold">تفاصيل الرسالة</h3>
+  <div id="contactModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+    <div class="bg-white rounded-lg p-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-bold">تفاصيل الرسالة</h3>
         <button id="closeContactModal" class="text-gray-500 hover:text-gray-700">
           <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="space-y-4">
+      <div class="space-y-3">
         <div>
-          <label class="block font-medium">الاسم:</label>
-          <p id="contactName" class="mt-1"></p>
-        </div>
-        <div>
-          <label class="block font-medium">البريد الإلكتروني:</label>
-          <p id="contactEmail" class="mt-1"></p>
+          <label class="block font-medium text-sm">الاسم:</label>
+          <p id="contactName" class="mt-1 text-sm"></p>
         </div>
         <div>
-          <label class="block font-medium">الموضوع:</label>
-          <p id="contactSubject" class="mt-1"></p>
+          <label class="block font-medium text-sm">البريد الإلكتروني:</label>
+          <p id="contactEmail" class="mt-1 text-sm"></p>
         </div>
         <div>
-          <label class="block font-medium">الرسالة:</label>
-          <p id="contactMessage" class="mt-1"></p>
+          <label class="block font-medium text-sm">الموضوع:</label>
+          <p id="contactSubject" class="mt-1 text-sm"></p>
         </div>
-        <div class="mt-6">
-          <button id="replyContact" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">رد</button>
+        <div>
+          <label class="block font-medium text-sm">الرسالة:</label>
+          <p id="contactMessage" class="mt-1 text-sm whitespace-pre-line"></p>
         </div>
+      </div>
+      <div class="mt-4 flex justify-between">
+        <button id="replyContact" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">رد</button>
+        <button id="closeContactModalBtn" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm">إغلاق</button>
       </div>
     </div>
   </div>
@@ -412,24 +519,50 @@
     const orderFilter = document.getElementById('orderFilter');
     const suggestionFilter = document.getElementById('suggestionFilter');
     const addProductBtn = document.getElementById('addProductBtn');
+    const refreshProducts = document.getElementById('refreshProducts');
+    const exportOrders = document.getElementById('exportOrders');
     const emailForm = document.getElementById('emailForm');
     const productForm = document.getElementById('productForm');
+    const productImageInput = document.getElementById('productImageInput');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const imagePreview = document.getElementById('imagePreview');
 
     // Modal Elements
     const productModal = document.getElementById('productModal');
     const closeProductModal = document.getElementById('closeProductModal');
     const cancelProduct = document.getElementById('cancelProduct');
+    const orderModal = document.getElementById('orderModal');
+    const closeOrderModal = document.getElementById('closeOrderModal');
+    const closeOrderModalBtn = document.getElementById('closeOrderModalBtn');
     const suggestionModal = document.getElementById('suggestionModal');
     const closeSuggestionModal = document.getElementById('closeSuggestionModal');
+    const closeSuggestionModalBtn = document.getElementById('closeSuggestionModalBtn');
     const contactModal = document.getElementById('contactModal');
     const closeContactModal = document.getElementById('closeContactModal');
+    const closeContactModalBtn = document.getElementById('closeContactModalBtn');
+
+    // Pagination
+    let currentPage = 1;
+    const ordersPerPage = 10;
+    let totalOrders = 0;
 
     // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
-      const res = await fetch('/api/csrf-token');
-      const { csrfToken } = await res.json();
-      document.getElementById('csrfToken').value = csrfToken;
+      // Set current date
+      const now = new Date();
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('currentDate').textContent = now.toLocaleDateString('ar-EG', options);
+      
+      // Load CSRF token
+      try {
+        const res = await fetch('/api/csrf-token');
+        const { csrfToken } = await res.json();
+        document.getElementById('csrfToken').value = csrfToken;
+      } catch (error) {
+        console.error('Error loading CSRF token:', error);
+      }
 
+      // Load initial data
       await loadDashboardData();
       await loadOrders();
       await loadProducts();
@@ -447,10 +580,15 @@
 
       logoutBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        const res = await fetch('/api/logout', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-          window.location.href = data.redirect;
+        try {
+          const res = await fetch('/api/logout', { method: 'POST' });
+          const data = await res.json();
+          if (data.success) {
+            window.location.href = data.redirect;
+          }
+        } catch (error) {
+          console.error('Logout error:', error);
+          alert('حدث خطأ أثناء محاولة تسجيل الخروج');
         }
       });
 
@@ -463,6 +601,7 @@
       });
 
       orderFilter.addEventListener('change', () => {
+        currentPage = 1;
         loadOrders();
       });
 
@@ -472,7 +611,19 @@
 
       addProductBtn.addEventListener('click', () => {
         document.getElementById('productModalTitle').textContent = 'إضافة منتج جديد';
+        productForm.reset();
+        productForm.dataset.productId = '';
+        productImageInput.required = true;
+        imagePreviewContainer.classList.add('hidden');
         productModal.classList.remove('hidden');
+      });
+
+      refreshProducts.addEventListener('click', async () => {
+        await loadProducts();
+      });
+
+      exportOrders.addEventListener('click', async () => {
+        await exportOrdersToCSV();
       });
 
       closeProductModal.addEventListener('click', () => {
@@ -483,55 +634,124 @@
         productModal.classList.add('hidden');
       });
 
+      closeOrderModal.addEventListener('click', () => {
+        orderModal.classList.add('hidden');
+      });
+
+      closeOrderModalBtn.addEventListener('click', () => {
+        orderModal.classList.add('hidden');
+      });
+
+      closeSuggestionModal.addEventListener('click', () => {
+        suggestionModal.classList.add('hidden');
+      });
+
+      closeSuggestionModalBtn.addEventListener('click', () => {
+        suggestionModal.classList.add('hidden');
+      });
+
+      closeContactModal.addEventListener('click', () => {
+        contactModal.classList.add('hidden');
+      });
+
+      closeContactModalBtn.addEventListener('click', () => {
+        contactModal.classList.add('hidden');
+      });
+
+      // Image preview for product form
+      productImageInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            imagePreview.src = e.target.result;
+            imagePreviewContainer.classList.remove('hidden');
+          };
+          reader.readAsDataURL(this.files[0]);
+        }
+      });
+
+      // Product form submission
       productForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(productForm);
+        const productId = productForm.dataset.productId;
+        const url = productId ? `/api/products/${productId}` : '/api/products';
+        const method = productId ? 'PUT' : 'POST';
         
         try {
-          const response = await fetch('/api/products', {
-            method: 'POST',
+          const response = await fetch(url, {
+            method: method,
             body: formData
           });
           
           const result = await response.json();
           if (result.success) {
-            alert('تم إضافة المنتج بنجاح');
+            alert(productId ? 'تم تحديث المنتج بنجاح' : 'تم إضافة المنتج بنجاح');
             productModal.classList.add('hidden');
-            productForm.reset();
             await loadProducts();
           } else {
-            alert('حدث خطأ: ' + result.message);
+            alert(`حدث خطأ: ${result.message}`);
           }
         } catch (error) {
+          console.error('Error saving product:', error);
           alert('حدث خطأ في الاتصال بالخادم');
-          console.error(error);
         }
       });
 
+      // Email form submission
       emailForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const response = await fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(Object.fromEntries(formData))
-        });
-        const result = await response.json();
-        const resultDiv = document.getElementById('emailResult');
-        resultDiv.classList.remove('hidden');
-        if (result.success) {
+        
+        try {
+          const response = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.fromEntries(formData))
+          });
+          
+          const result = await response.json();
+          const resultDiv = document.getElementById('emailResult');
+          resultDiv.classList.remove('hidden');
+          
+          if (result.success) {
+            resultDiv.innerHTML = `
+              <div class="bg-green-100 border border-green-400 text-green-700 px-3 py-2 rounded text-sm">
+                ${result.message}
+              </div>
+            `;
+            e.target.reset();
+          } else {
+            resultDiv.innerHTML = `
+              <div class="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded text-sm">
+                ${result.message}
+              </div>
+            `;
+          }
+        } catch (error) {
+          console.error('Error sending email:', error);
+          const resultDiv = document.getElementById('emailResult');
+          resultDiv.classList.remove('hidden');
           resultDiv.innerHTML = `
-            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-              ${result.message}
+            <div class="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded text-sm">
+              حدث خطأ في الاتصال بالخادم
             </div>
           `;
-          e.target.reset();
-        } else {
-          resultDiv.innerHTML = `
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              ${result.message}
-            </div>
-          `;
+        }
+      });
+
+      // Pagination buttons
+      document.getElementById('prevPage').addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          loadOrders();
+        }
+      });
+
+      document.getElementById('nextPage').addEventListener('click', () => {
+        if (currentPage * ordersPerPage < totalOrders) {
+          currentPage++;
+          loadOrders();
         }
       });
     });
@@ -562,37 +782,70 @@
 
     async function loadDashboardData() {
       try {
-        const [ordersRes, productsRes, suggestionsRes, contactsRes] = await Promise.all([
+        const [ordersRes, productsRes, suggestionsRes, contactsRes, statsRes] = await Promise.all([
           fetch('/api/orders'),
           fetch('/api/products'),
           fetch('/api/suggestions'),
-          fetch('/api/contacts')
+          fetch('/api/contacts'),
+          fetch('/api/stats')
         ]);
         
         const orders = await ordersRes.json();
         const products = await productsRes.json();
         const suggestions = await suggestionsRes.json();
         const contacts = await contactsRes.json();
+        const stats = await statsRes.json();
         
+        // Update counts
         document.getElementById('totalOrders').textContent = orders.length;
         document.getElementById('newOrders').textContent = orders.filter(o => o.status === 'pending').length;
         document.getElementById('totalProducts').textContent = products.length;
         
+        // Update recent orders
         const recentOrders = orders.slice(0, 5);
         const ordersHtml = recentOrders.map(order => `
           <tr>
-            <td class="px-4 py-3">${order.id}</td>
-            <td class="px-4 py-3">${order.customerName || 'غير معروف'}</td>
-            <td class="px-4 py-3">${order.total || 0} جنيه</td>
-            <td class="px-4 py-3">
+            <td class="px-3 py-2">#${order.id}</td>
+            <td class="px-3 py-2">${order.customerName || 'غير معروف'}</td>
+            <td class="px-3 py-2">${order.total || 0} جنيه</td>
+            <td class="px-3 py-2">
               <span class="px-2 py-1 rounded-full text-xs status-${order.status}">
                 ${getStatusText(order.status)}
               </span>
             </td>
-            <td class="px-4 py-3">${new Date(order.createdAt).toLocaleDateString('ar-EG')}</td>
+            <td class="px-3 py-2">${new Date(order.createdAt).toLocaleDateString('ar-EG')}</td>
           </tr>
         `).join('');
         document.getElementById('recentOrders').innerHTML = ordersHtml;
+        
+        // Update sales stats
+        if (stats.topProducts) {
+          const topProductsHtml = stats.topProducts.map(product => `
+            <div class="flex justify-between items-center">
+              <span>${product.name}</span>
+              <span class="font-medium">${product.sales} مبيعاً</span>
+            </div>
+          `).join('');
+          document.getElementById('topProducts').innerHTML = topProductsHtml;
+        }
+        
+        if (stats.salesSummary) {
+          const salesSummaryHtml = `
+            <div class="flex justify-between items-center">
+              <span>إجمالي المبيعات:</span>
+              <span class="font-medium">${stats.salesSummary.totalSales} جنيه</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span>عدد الطلبات:</span>
+              <span class="font-medium">${stats.salesSummary.totalOrders}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span>متوسط قيمة الطلب:</span>
+              <span class="font-medium">${stats.salesSummary.averageOrderValue} جنيه</span>
+            </div>
+          `;
+          document.getElementById('salesSummary').innerHTML = salesSummaryHtml;
+        }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       }
@@ -610,34 +863,194 @@
     async function loadOrders() {
       try {
         const status = orderFilter.value;
-        const url = status === 'all' ? '/api/orders' : `/api/orders?status=${status}`;
+        const url = status === 'all' ? `/api/orders?page=${currentPage}&limit=${ordersPerPage}` : `/api/orders?status=${status}&page=${currentPage}&limit=${ordersPerPage}`;
+        
         const res = await fetch(url);
-        const orders = await res.json();
+        const { orders, total } = await res.json();
+        totalOrders = total;
+        
+        // Update pagination info
+        document.getElementById('ordersCount').textContent = `عرض ${Math.min(currentPage * ordersPerPage, total)} من ${total} طلبات`;
+        document.getElementById('prevPage').disabled = currentPage === 1;
+        document.getElementById('nextPage').disabled = currentPage * ordersPerPage >= total;
         
         const ordersHtml = orders.map(order => `
           <tr>
-            <td class="px-4 py-3">${order.id}</td>
-            <td class="px-4 py-3">${order.customerName || 'غير معروف'}</td>
-            <td class="px-4 py-3">${order.items?.length || 0} منتج</td>
-            <td class="px-4 py-3">${order.total || 0} جنيه</td>
-            <td class="px-4 py-3">
+            <td class="px-3 py-2">#${order.id}</td>
+            <td class="px-3 py-2">${order.customerName || 'غير معروف'}</td>
+            <td class="px-3 py-2">${order.items?.length || 0} منتج</td>
+            <td class="px-3 py-2">${order.total || 0} جنيه</td>
+            <td class="px-3 py-2">
               <span class="px-2 py-1 rounded-full text-xs status-${order.status}">
                 ${getStatusText(order.status)}
               </span>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-3 py-2">
               <button class="view-order p-1 text-blue-600 hover:text-blue-800" data-id="${order.id}">
                 <i class="fas fa-eye"></i>
               </button>
-              <button class="edit-order p-1 text-yellow-600 hover:text-yellow-800 ml-2" data-id="${order.id}">
+              <button class="edit-order-status p-1 text-yellow-600 hover:text-yellow-800 ml-1" data-id="${order.id}">
                 <i class="fas fa-edit"></i>
               </button>
             </td>
           </tr>
         `).join('');
         document.getElementById('ordersTable').innerHTML = ordersHtml;
+        
+        // Add event listeners for order actions
+        document.querySelectorAll('.view-order').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const orderId = e.currentTarget.getAttribute('data-id');
+            await viewOrderDetails(orderId);
+          });
+        });
+        
+        document.querySelectorAll('.edit-order-status').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const orderId = e.currentTarget.getAttribute('data-id');
+            await editOrderStatus(orderId);
+          });
+        });
       } catch (error) {
         console.error('Error loading orders:', error);
+        document.getElementById('ordersTable').innerHTML = `
+          <tr>
+            <td colspan="6" class="px-3 py-2 text-center text-red-600">حدث خطأ أثناء تحميل الطلبات</td>
+          </tr>
+        `;
+      }
+    }
+
+    async function viewOrderDetails(orderId) {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        const order = await res.json();
+        
+        const orderDetailsHtml = `
+          <div class="space-y-3">
+            <div>
+              <label class="block font-medium text-sm">رقم الطلب:</label>
+              <p class="mt-1 text-sm">#${order.id}</p>
+            </div>
+            <div>
+              <label class="block font-medium text-sm">العميل:</label>
+              <p class="mt-1 text-sm">${order.customerName}</p>
+            </div>
+            <div>
+              <label class="block font-medium text-sm">البريد الإلكتروني:</label>
+              <p class="mt-1 text-sm">${order.customerEmail}</p>
+            </div>
+            <div>
+              <label class="block font-medium text-sm">رقم الهاتف:</label>
+              <p class="mt-1 text-sm">${order.customerPhone}</p>
+            </div>
+            <div>
+              <label class="block font-medium text-sm">المحافظة:</label>
+              <p class="mt-1 text-sm">${order.governorate}</p>
+            </div>
+            <div>
+              <label class="block font-medium text-sm">العنوان:</label>
+              <p class="mt-1 text-sm">${order.address}</p>
+            </div>
+            <div>
+              <label class="block font-medium text-sm">المقاس:</label>
+              <p class="mt-1 text-sm">${order.size} ${order.customSize ? `(مخصص: ${order.customSize})` : ''}</p>
+            </div>
+            <div>
+              <label class="block font-medium text-sm">طريقة الدفع:</label>
+              <p class="mt-1 text-sm">${order.paymentMethod === 'cash' ? 'الدفع عند الاستلام' : 'تحويل فودافون كاش'}</p>
+              ${order.paymentMethod === 'vodafone' ? `
+                <div class="mt-2 p-2 bg-gray-50 rounded">
+                  <p class="text-sm"><span class="font-medium">رقم التحويل:</span> ${order.transactionNumber}</p>
+                  ${order.transactionImage ? `
+                    <div class="mt-2">
+                      <p class="text-sm font-medium mb-1">صورة التحويل:</p>
+                      <img src="/uploads/${order.transactionImage}" class="max-w-full h-auto rounded border border-gray-200">
+                    </div>
+                  ` : ''}
+                </div>
+              ` : ''}
+            </div>
+            <div>
+              <label class="block font-medium text-sm">المنتجات:</label>
+              <div class="mt-1 space-y-2">
+                ${order.items.map(item => `
+                  <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                    <div>
+                      <p class="text-sm font-medium">${item.name}</p>
+                      <p class="text-xs text-gray-600">المقاس: ${item.size}</p>
+                    </div>
+                    <p class="text-sm">${item.price} جنيه</p>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-gray-200">
+              <label class="block font-medium text-sm">إجمالي الطلب:</label>
+              <p class="text-sm font-bold">${order.total} جنيه</p>
+            </div>
+            <div class="flex justify-between items-center">
+              <label class="block font-medium text-sm">حالة الطلب:</label>
+              <span class="px-2 py-1 rounded-full text-xs status-${order.status}">
+                ${getStatusText(order.status)}
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <label class="block font-medium text-sm">تاريخ الطلب:</label>
+              <p class="text-sm">${new Date(order.createdAt).toLocaleDateString('ar-EG')}</p>
+            </div>
+          </div>
+        `;
+        
+        document.getElementById('orderDetails').innerHTML = orderDetailsHtml;
+        orderModal.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error loading order details:', error);
+        alert('حدث خطأ أثناء تحميل تفاصيل الطلب');
+      }
+    }
+
+    async function editOrderStatus(orderId) {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        const order = await res.json();
+        
+        const statusOptions = [
+          { value: 'pending', text: 'قيد الانتظار' },
+          { value: 'shipped', text: 'تم الشحن' },
+          { value: 'delivered', text: 'تم التسليم' }
+        ];
+        
+        const statusSelect = document.createElement('select');
+        statusSelect.className = 'border border-gray-300 rounded px-2 py-1 text-sm';
+        statusOptions.forEach(option => {
+          const optElement = document.createElement('option');
+          optElement.value = option.value;
+          optElement.textContent = option.text;
+          optElement.selected = order.status === option.value;
+          statusSelect.appendChild(optElement);
+        });
+        
+        const confirmUpdate = confirm('هل تريد تغيير حالة هذا الطلب؟');
+        if (confirmUpdate) {
+          const newStatus = statusSelect.value;
+          const updateRes = await fetch(`/api/orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+          });
+          
+          const result = await updateRes.json();
+          if (result.success) {
+            alert('تم تحديث حالة الطلب بنجاح');
+            await loadOrders();
+          } else {
+            alert(`حدث خطأ: ${result.message}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error updating order status:', error);
+        alert('حدث خطأ أثناء محاولة تحديث حالة الطلب');
       }
     }
 
@@ -648,22 +1061,26 @@
         
         const productsHtml = products.map(product => `
           <tr>
-            <td class="px-4 py-3"><img src="/uploads/${product.image}" class="w-16 h-16 object-cover rounded"></td>
-            <td class="px-4 py-3">${product.name}</td>
-            <td class="px-4 py-3">${product.price} جنيه</td>
-            <td class="px-4 py-3">${product.sizes.join(', ')}</td>
-            <td class="px-4 py-3">${product.stock}</td>
-            <td class="px-4 py-3">
+            <td class="px-3 py-2"><img src="/uploads/${product.image}" class="w-12 h-12 object-cover rounded"></td>
+            <td class="px-3 py-2">${product.name}</td>
+            <td class="px-3 py-2">${product.price} جنيه</td>
+            <td class="px-3 py-2">${product.sizes.join(', ')}</td>
+            <td class="px-3 py-2">${product.stock}</td>
+            <td class="px-3 py-2">
               <button class="edit-product p-1 text-yellow-600 hover:text-yellow-800" data-id="${product.id}">
                 <i class="fas fa-edit"></i>
               </button>
-              <button class="delete-product p-1 text-red-600 hover:text-red-800 ml-2" data-id="${product.id}">
+              <button class="delete-product p-1 text-red-600 hover:text-red-800 ml-1" data-id="${product.id}">
                 <i class="fas fa-trash"></i>
               </button>
             </td>
           </tr>
         `).join('');
-        document.getElementById('productsTable').innerHTML = productsHtml;
+        document.getElementById('productsTable').innerHTML = productsHtml || `
+          <tr>
+            <td colspan="6" class="px-3 py-2 text-center text-gray-500">لا توجد منتجات متاحة</td>
+          </tr>
+        `;
 
         // Add event listeners for product actions
         document.querySelectorAll('.edit-product').forEach(btn => {
@@ -683,6 +1100,11 @@
         });
       } catch (error) {
         console.error('Error loading products:', error);
+        document.getElementById('productsTable').innerHTML = `
+          <tr>
+            <td colspan="6" class="px-3 py-2 text-center text-red-600">حدث خطأ أثناء تحميل المنتجات</td>
+          </tr>
+        `;
       }
     }
 
@@ -697,6 +1119,12 @@
         productForm.querySelector('[name="sizes"]').value = product.sizes.join(',');
         productForm.querySelector('[name="stock"]').value = product.stock;
         productForm.querySelector('[name="image"]').required = false;
+        
+        // Show current image
+        if (product.image) {
+          imagePreview.src = `/uploads/${product.image}`;
+          imagePreviewContainer.classList.remove('hidden');
+        }
         
         // Store product ID for update
         productForm.dataset.productId = productId;
@@ -719,7 +1147,7 @@
           alert('تم حذف المنتج بنجاح');
           await loadProducts();
         } else {
-          alert('حدث خطأ: ' + result.message);
+          alert(`حدث خطأ: ${result.message}`);
         }
       } catch (error) {
         console.error('Error deleting product:', error);
@@ -736,23 +1164,27 @@
         
         const suggestionsHtml = suggestions.map(suggestion => `
           <tr class="suggestion-${suggestion.status}">
-            <td class="px-4 py-3">${suggestion.name}</td>
-            <td class="px-4 py-3">${suggestion.email}</td>
-            <td class="px-4 py-3">${suggestion.suggestion.substring(0, 50)}${suggestion.suggestion.length > 50 ? '...' : ''}</td>
-            <td class="px-4 py-3">${suggestion.design ? 'نعم' : 'لا'}</td>
-            <td class="px-4 py-3">
+            <td class="px-3 py-2">${suggestion.name}</td>
+            <td class="px-3 py-2">${suggestion.email}</td>
+            <td class="px-3 py-2">${suggestion.suggestion.substring(0, 30)}${suggestion.suggestion.length > 30 ? '...' : ''}</td>
+            <td class="px-3 py-2">${suggestion.design ? 'نعم' : 'لا'}</td>
+            <td class="px-3 py-2">
               <span class="px-2 py-1 rounded-full text-xs">
                 ${getSuggestionStatusText(suggestion.status)}
               </span>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-3 py-2">
               <button class="view-suggestion p-1 text-blue-600 hover:text-blue-800" data-id="${suggestion.id}">
                 <i class="fas fa-eye"></i>
               </button>
             </td>
           </tr>
         `).join('');
-        document.getElementById('suggestionsTable').innerHTML = suggestionsHtml;
+        document.getElementById('suggestionsTable').innerHTML = suggestionsHtml || `
+          <tr>
+            <td colspan="6" class="px-3 py-2 text-center text-gray-500">لا توجد اقتراحات متاحة</td>
+          </tr>
+        `;
 
         // Add event listeners for suggestion actions
         document.querySelectorAll('.view-suggestion').forEach(btn => {
@@ -763,6 +1195,11 @@
         });
       } catch (error) {
         console.error('Error loading suggestions:', error);
+        document.getElementById('suggestionsTable').innerHTML = `
+          <tr>
+            <td colspan="6" class="px-3 py-2 text-center text-red-600">حدث خطأ أثناء تحميل الاقتراحات</td>
+          </tr>
+        `;
       }
     }
 
@@ -809,19 +1246,23 @@
         
         const contactsHtml = contacts.map(contact => `
           <tr>
-            <td class="px-4 py-3">${contact.name}</td>
-            <td class="px-4 py-3">${contact.email}</td>
-            <td class="px-4 py-3">${contact.subject}</td>
-            <td class="px-4 py-3">${contact.message.substring(0, 50)}${contact.message.length > 50 ? '...' : ''}</td>
-            <td class="px-4 py-3">${new Date(contact.createdAt).toLocaleDateString('ar-EG')}</td>
-            <td class="px-4 py-3">
+            <td class="px-3 py-2">${contact.name}</td>
+            <td class="px-3 py-2">${contact.email}</td>
+            <td class="px-3 py-2">${contact.subject}</td>
+            <td class="px-3 py-2">${contact.message.substring(0, 30)}${contact.message.length > 30 ? '...' : ''}</td>
+            <td class="px-3 py-2">${new Date(contact.createdAt).toLocaleDateString('ar-EG')}</td>
+            <td class="px-3 py-2">
               <button class="view-contact p-1 text-blue-600 hover:text-blue-800" data-id="${contact.id}">
                 <i class="fas fa-eye"></i>
               </button>
             </td>
           </tr>
         `).join('');
-        document.getElementById('contactsTable').innerHTML = contactsHtml;
+        document.getElementById('contactsTable').innerHTML = contactsHtml || `
+          <tr>
+            <td colspan="6" class="px-3 py-2 text-center text-gray-500">لا توجد رسائل متاحة</td>
+          </tr>
+        `;
 
         // Add event listeners for contact actions
         document.querySelectorAll('.view-contact').forEach(btn => {
@@ -832,6 +1273,11 @@
         });
       } catch (error) {
         console.error('Error loading contacts:', error);
+        document.getElementById('contactsTable').innerHTML = `
+          <tr>
+            <td colspan="6" class="px-3 py-2 text-center text-red-600">حدث خطأ أثناء تحميل الرسائل</td>
+          </tr>
+        `;
       }
     }
 
@@ -881,7 +1327,7 @@
           suggestionModal.classList.add('hidden');
           await loadSuggestions();
         } else {
-          alert('حدث خطأ: ' + result.message);
+          alert(`حدث خطأ: ${result.message}`);
         }
       } catch (error) {
         console.error('Error updating suggestion:', error);
@@ -895,15 +1341,34 @@
       contactModal.classList.add('hidden');
       switchTab('email');
       document.querySelector('#emailForm [name="to"]').value = email;
+      document.querySelector('#emailForm [name="subject"]').focus();
     });
 
-    closeSuggestionModal.addEventListener('click', () => {
-      suggestionModal.classList.add('hidden');
-    });
-
-    closeContactModal.addEventListener('click', () => {
-      contactModal.classList.add('hidden');
-    });
+    async function exportOrdersToCSV() {
+      try {
+        const status = orderFilter.value;
+        const url = status === 'all' ? '/api/orders/export' : `/api/orders/export?status=${status}`;
+        
+        const res = await fetch(url);
+        if (res.ok) {
+          const blob = await res.blob();
+          const downloadUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `طلبات_${new Date().toISOString().split('T')[0]}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(downloadUrl);
+          a.remove();
+        } else {
+          const error = await res.json();
+          alert(`حدث خطأ: ${error.message}`);
+        }
+      } catch (error) {
+        console.error('Error exporting orders:', error);
+        alert('حدث خطأ أثناء تصدير الطلبات');
+      }
+    }
   </script>
 </body>
 </html>
