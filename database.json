@@ -3,7 +3,7 @@
     {
       "id": 1,
       "username": "ba7er",
-      "password": "$2a$10$EXAMPLEHASHEDPASSWORD",
+      "password": "$2b$10$f4I14CeefRq2NfeXMyxBue288e3zLlEHI0Z42cH3PrKV45OfuY6dq",
       "role": "admin"
     }
   ],

@@ -258,8 +258,8 @@ app.post('/api/orders', upload.fields([{ name: 'transactionImage', maxCount: 1 }
     saveDatabase(); // حفظ التغييرات في الملف
     
     const mailOptions = {
-      from: process.env.SMTP_USER || 'your-email@gmail.com',
-      to: process.env.ADMIN_EMAIL || 'admin@example.com',
+      from: process.env.SMTP_USER || 'clanking957@gmail.com',
+      to: process.env.ADMIN_EMAIL || 'clanking957@gmail.com',
       subject: 'طلب جديد - متجر 𝐵𝒜𝟩𝐸𝑅',
       text: `تم استلام طلب جديد من ${name}\n\nالمنتج: ${product.name}\nالسعر: ${product.price} جنيه\nطريقة الدفع: ${payment === 'cash' ? 'الدفع عند الاستلام' : 'فودافون كاش'}`
     };
@@ -293,8 +293,8 @@ app.post('/api/contact', async (req, res, next) => {
     saveDatabase(); // حفظ التغييرات في الملف
     
     const mailOptions = {
-      from: process.env.SMTP_USER || 'your-email@gmail.com',
-      to: process.env.ADMIN_EMAIL || 'admin@example.com',
+      from: process.env.SMTP_USER || 'clanking957@gmail.com',
+      to: process.env.ADMIN_EMAIL || 'clanking957@gmail.com',
       subject: `رسالة جديدة: ${subject}`,
       text: `اسم المرسل: ${name}\nالبريد الإلكتروني: ${email}\n\nالرسالة:\n${message}`
     };
@@ -343,7 +343,7 @@ app.post('/api/send-email', isAuthenticated, async (req, res, next) => {
     }
     
     const mailOptions = {
-      from: process.env.SMTP_USER || 'your-email@gmail.com',
+      from: process.env.SMTP_USER || 'clanking957@gmail.com',
       to,
       subject,
       text
