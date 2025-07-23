@@ -1,9 +1,15 @@
 {
+  "name": "ba7er",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "dependencies": {
-    "body-parser": "^2.2.0",
-    "dotenv": "^17.2.0",
-    "express": "^5.1.0",
-    "express-session": "^1.18.2",
-    "nodemailer": "^7.0.5"
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "dotenv": "^16.3.1",
+    "body-parser": "^1.20.2",
+    "nodemailer": "^6.9.8"
   }
 }
