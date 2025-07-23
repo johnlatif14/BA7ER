@@ -15,11 +15,21 @@ app.use(express.static('public'));
 
 // إعداد الجلسات
 app.use(session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'default-secret-key',
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false }
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000 // 24 ساعة
+    }
 }));
+
+// ضمان أن الاستجابات تكون JSON
+app.use((req, res, next) => {
+    res.header('Content-Type', 'application/json');
+    next();
+});
 
 // ملفات JSON
 const DATA_DIR = path.join(__dirname, 'data');
@@ -47,17 +57,26 @@ initFile(MESSAGES_FILE);
 
 // قراءة البيانات من ملف JSON
 const readData = (filePath) => {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    try {
+        return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    } catch (error) {
+        console.error(`Error reading ${filePath}:`, error);
+        return [];
+    }
 };
 
 // كتابة البيانات إلى ملف JSON
 const writeData = (filePath, data) => {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    } catch (error) {
+        console.error(`Error writing to ${filePath}:`, error);
+    }
 };
 
 // Middleware للتحقق من المصادقة
 const authenticate = (req, res, next) => {
-    if (req.path === '/api/login' || req.path.startsWith('/public') || req.path === '/') {
+    if (req.path === '/api/login' || req.path === '/login' || req.path === '/' || req.path.startsWith('/public')) {
         return next();
     }
 
@@ -72,176 +91,57 @@ app.use(authenticate);
 
 // تسجيل الدخول
 app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
-    
-    if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
-        req.session.isAuthenticated = true;
-        res.json({ success: true });
-    } else {
-        res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+    try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ 
+                error: 'اسم المستخدم وكلمة المرور مطلوبان',
+                success: false
+            });
+        }
+
+        if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
+            req.session.isAuthenticated = true;
+            return res.json({ 
+                success: true,
+                message: 'تم تسجيل الدخول بنجاح'
+            });
+        } else {
+            return res.status(401).json({ 
+                error: 'اسم المستخدم أو كلمة المرور غير صحيحة',
+                success: false
+            });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        return res.status(500).json({ 
+            error: 'حدث خطأ في الخادم',
+            success: false
+        });
     }
 });
 
 // تسجيل الخروج
 app.post('/api/logout', (req, res) => {
-    req.session.destroy();
-    res.json({ message: 'تم تسجيل الخروج بنجاح' });
-});
-
-// المنتجات
-app.get('/api/products', (req, res) => {
-    const products = readData(PRODUCTS_FILE);
-    res.json(products);
-});
-
-app.get('/api/products/:id', (req, res) => {
-    const products = readData(PRODUCTS_FILE);
-    const product = products.find(p => p.id === req.params.id);
-    if (!product) {
-        return res.status(404).json({ error: 'المنتج غير موجود' });
-    }
-    res.json(product);
-});
-
-app.post('/api/products', (req, res) => {
-    const products = readData(PRODUCTS_FILE);
-    const newProduct = {
-        id: Date.now().toString(),
-        ...req.body,
-        createdAt: new Date().toISOString()
-    };
-    products.push(newProduct);
-    writeData(PRODUCTS_FILE, products);
-    res.status(201).json(newProduct);
-});
-
-app.put('/api/products/:id', (req, res) => {
-    const products = readData(PRODUCTS_FILE);
-    const index = products.findIndex(p => p.id === req.params.id);
-    if (index === -1) {
-        return res.status(404).json({ error: 'المنتج غير موجود' });
-    }
-    products[index] = { ...products[index], ...req.body };
-    writeData(PRODUCTS_FILE, products);
-    res.json(products[index]);
-});
-
-app.delete('/api/products/:id', (req, res) => {
-    const products = readData(PRODUCTS_FILE);
-    const filteredProducts = products.filter(p => p.id !== req.params.id);
-    writeData(PRODUCTS_FILE, filteredProducts);
-    res.json({ message: 'تم حذف المنتج بنجاح' });
-});
-
-// الطلبات
-app.get('/api/orders', (req, res) => {
-    const orders = readData(ORDERS_FILE);
-    res.json(orders);
-});
-
-app.post('/api/orders', (req, res) => {
-    const orders = readData(ORDERS_FILE);
-    const newOrder = {
-        id: Date.now().toString(),
-        ...req.body,
-        status: 'قيد المعالجة',
-        date: new Date().toISOString()
-    };
-    orders.push(newOrder);
-    writeData(ORDERS_FILE, orders);
-    res.status(201).json(newOrder);
-});
-
-// الاقتراحات
-app.get('/api/suggestions', (req, res) => {
-    const suggestions = readData(SUGGESTIONS_FILE);
-    res.json(suggestions);
-});
-
-app.post('/api/suggestions', (req, res) => {
-    const suggestions = readData(SUGGESTIONS_FILE);
-    const newSuggestion = {
-        id: Date.now().toString(),
-        ...req.body,
-        date: new Date().toISOString()
-    };
-    suggestions.push(newSuggestion);
-    writeData(SUGGESTIONS_FILE, suggestions);
-    res.status(201).json(newSuggestion);
-});
-
-app.delete('/api/suggestions/:id', (req, res) => {
-    const suggestions = readData(SUGGESTIONS_FILE);
-    const filteredSuggestions = suggestions.filter(s => s.id !== req.params.id);
-    writeData(SUGGESTIONS_FILE, filteredSuggestions);
-    res.json({ message: 'تم حذف الاقتراح بنجاح' });
-});
-
-// رسائل التواصل
-app.get('/api/messages', (req, res) => {
-    const messages = readData(MESSAGES_FILE);
-    res.json(messages);
-});
-
-app.post('/api/messages', (req, res) => {
-    const messages = readData(MESSAGES_FILE);
-    const newMessage = {
-        id: Date.now().toString(),
-        ...req.body,
-        date: new Date().toISOString()
-    };
-    messages.push(newMessage);
-    writeData(MESSAGES_FILE, messages);
-    res.status(201).json(newMessage);
-});
-
-app.delete('/api/messages/:id', (req, res) => {
-    const messages = readData(MESSAGES_FILE);
-    const filteredMessages = messages.filter(m => m.id !== req.params.id);
-    writeData(MESSAGES_FILE, filteredMessages);
-    res.json({ message: 'تم حذف الرسالة بنجاح' });
-});
-
-// إرسال البريد
-app.post('/api/send-email', async (req, res) => {
-    const { to, subject, message } = req.body;
-
-    const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
+    req.session.destroy(err => {
+        if (err) {
+            console.error('Logout error:', err);
+            return res.status(500).json({ 
+                error: 'حدث خطأ أثناء تسجيل الخروج',
+                success: false
+            });
         }
-    });
-
-    try {
-        await transporter.sendMail({
-            from: `"𝐵𝒜𝟩𝐸𝑅 متجر التيشيرتات" <${process.env.SMTP_USER}>`,
-            to,
-            subject,
-            text: message,
-            html: `<p>${message}</p>`
+        return res.json({ 
+            success: true,
+            message: 'تم تسجيل الخروج بنجاح'
         });
-        res.json({ message: 'تم إرسال البريد بنجاح' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'فشل في إرسال البريد' });
-    }
+    });
 });
 
 // Routes للصفحات
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/contact', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'contact.html'));
-});
-
-app.get('/suggestions', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'suggestions.html'));
 });
 
 app.get('/login', (req, res) => {
@@ -253,6 +153,15 @@ app.get('/dashboard', (req, res) => {
         return res.redirect('/login');
     }
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// معالج الأخطاء العام
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ 
+        error: 'حدث خطأ في الخادم',
+        success: false
+    });
 });
 
 // بدء الخادم

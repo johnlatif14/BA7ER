@@ -39,6 +39,9 @@
             margin-top: 5px;
             display: none;
         }
+        .alert-danger {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -51,6 +54,7 @@
     <div class="container my-auto">
         <div class="login-container">
             <h2 class="text-center mb-4">تسجيل الدخول للإدارة</h2>
+            <div id="login-error" class="alert alert-danger mb-3"></div>
             <form id="login-form">
                 <div class="mb-3">
                     <label for="username" class="form-label">اسم المستخدم</label>
@@ -62,7 +66,6 @@
                     <input type="password" class="form-control" id="password" required>
                     <div id="password-error" class="error-message"></div>
                 </div>
-                <div id="login-error" class="alert alert-danger d-none mb-3"></div>
                 <button type="submit" class="btn btn-primary w-100">تسجيل الدخول</button>
             </form>
         </div>
@@ -79,12 +82,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             const loginForm = document.getElementById('login-form');
             const loginError = document.getElementById('login-error');
+            const apiBaseUrl = window.location.origin;
 
             loginForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
                 // إخفاء رسائل الخطأ السابقة
-                loginError.classList.add('d-none');
+                loginError.style.display = 'none';
                 document.getElementById('username-error').style.display = 'none';
                 document.getElementById('password-error').style.display = 'none';
 
@@ -105,28 +109,27 @@
                 }
 
                 try {
-                    const response = await fetch('/api/login', {
+                    const response = await fetch(`${apiBaseUrl}/api/login`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json'
                         },
-                        body: JSON.stringify({ username, password })
+                        body: JSON.stringify({ username, password }),
+                        credentials: 'include'
                     });
 
                     const data = await response.json();
 
-                    if (response.ok) {
-                        // تسجيل الدخول ناجح - التوجيه إلى لوحة التحكم
-                        window.location.href = '/dashboard';
+                    if (response.ok && data.success) {
+                        window.location.href = '/dashboard.html';
                     } else {
-                        // عرض رسالة الخطأ
-                        loginError.textContent = data.error || 'اسم المستخدم أو كلمة المرور غير صحيحة!';
-                        loginError.classList.remove('d-none');
+                        throw new Error(data.error || 'اسم المستخدم أو كلمة المرور غير صحيحة');
                     }
                 } catch (error) {
-                    console.error('Error:', error);
-                    loginError.textContent = 'حدث خطأ أثناء محاولة تسجيل الدخول. يرجى المحاولة مرة أخرى.';
-                    loginError.classList.remove('d-none');
+                    console.error('Login error:', error);
+                    loginError.textContent = error.message || 'حدث خطأ أثناء تسجيل الدخول';
+                    loginError.style.display = 'block';
                 }
             });
         });
