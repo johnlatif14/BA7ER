@@ -33,12 +33,18 @@
             color: white;
             padding: 15px 0;
         }
+        .error-message {
+            color: #dc3545;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand logo" href="index.html">𝐵𝒜𝟩𝐸𝑅</a>
+            <a class="navbar-brand logo" href="/">𝐵𝒜𝟩𝐸𝑅</a>
         </div>
     </nav>
 
@@ -49,11 +55,14 @@
                 <div class="mb-3">
                     <label for="username" class="form-label">اسم المستخدم</label>
                     <input type="text" class="form-control" id="username" required>
+                    <div id="username-error" class="error-message"></div>
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">كلمة المرور</label>
                     <input type="password" class="form-control" id="password" required>
+                    <div id="password-error" class="error-message"></div>
                 </div>
+                <div id="login-error" class="alert alert-danger d-none mb-3"></div>
                 <button type="submit" class="btn btn-primary w-100">تسجيل الدخول</button>
             </form>
         </div>
@@ -67,25 +76,57 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('login-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const credentials = {
-                username: document.getElementById('username').value,
-                password: document.getElementById('password').value
-            };
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('login-form');
+            const loginError = document.getElementById('login-error');
 
-            fetch('/api/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(credentials)
-            })
-            .then(response => {
-                if (response.ok) {
-                    window.location.href = 'dashboard.html';
-                } else {
-                    alert('اسم المستخدم أو كلمة المرور غير صحيحة!');
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // إخفاء رسائل الخطأ السابقة
+                loginError.classList.add('d-none');
+                document.getElementById('username-error').style.display = 'none';
+                document.getElementById('password-error').style.display = 'none';
+
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+
+                // التحقق من الحقول الفارغة
+                if (!username) {
+                    document.getElementById('username-error').textContent = 'يجب إدخال اسم المستخدم';
+                    document.getElementById('username-error').style.display = 'block';
+                    return;
+                }
+
+                if (!password) {
+                    document.getElementById('password-error').textContent = 'يجب إدخال كلمة المرور';
+                    document.getElementById('password-error').style.display = 'block';
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        // تسجيل الدخول ناجح - التوجيه إلى لوحة التحكم
+                        window.location.href = '/dashboard';
+                    } else {
+                        // عرض رسالة الخطأ
+                        loginError.textContent = data.error || 'اسم المستخدم أو كلمة المرور غير صحيحة!';
+                        loginError.classList.remove('d-none');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    loginError.textContent = 'حدث خطأ أثناء محاولة تسجيل الدخول. يرجى المحاولة مرة أخرى.';
+                    loginError.classList.remove('d-none');
                 }
             });
         });

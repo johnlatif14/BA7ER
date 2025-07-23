@@ -1,106 +1,337 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>𝐵𝒜𝟩𝐸𝑅 - متجر التيشيرتات</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f8f9fa;
-        }
-        .logo {
-            font-family: 'Arial', sans-serif;
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #0d6efd;
-        }
-        .hero-section {
-            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://via.placeholder.com/1920x600');
-            background-size: cover;
-            color: white;
-            padding: 100px 0;
-            text-align: center;
-        }
-        .section-card {
-            transition: transform 0.3s;
-            height: 100%;
-        }
-        .section-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>متجر 𝐵𝒜𝟩𝐸𝑅 - التيشيرتات</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .product-card {
+      transition: transform 0.3s ease;
+    }
+    .product-card:hover {
+      transform: translateY(-5px);
+    }
+    .sidebar {
+      min-height: 100vh;
+      position: fixed;
+      width: 250px;
+    }
+    .main-content {
+      margin-right: 250px;
+    }
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        position: relative;
+      }
+      .main-content {
+        margin-right: 0;
+      }
+    }
+    .delivery-price {
+      background-color: #f8f9fa;
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-size: 0.9rem;
+      margin-right: 5px;
+    }
+    .modal-body {
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+  </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand logo" href="/">𝐵𝒜𝟩𝐸𝑅</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/">الصفحة الرئيسية</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/contact">اتصل بنا</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/suggestions">اقتراحات</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+  <!-- Sidebar -->
+  <div class="sidebar bg-dark text-white p-3">
+    <h2 class="text-center mb-4">𝐵𝒜𝟩𝐸𝑅</h2>
+    <ul class="nav flex-column">
+      <li class="nav-item">
+        <a class="nav-link active" href="/"><i class="fas fa-home me-2"></i>الصفحة الرئيسية</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/contact"><i class="fas fa-envelope me-2"></i>اتصل بنا</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/suggestions"><i class="fas fa-lightbulb me-2"></i>الاقتراحات</a>
+      </li>
+    </ul>
+  </div>
 
-    <section class="hero-section mb-5">
-        <div class="container">
-            <h1 class="display-4">أحدث تشكيلة التيشيرتات</h1>
-            <p class="lead">اختر من بين مجموعة واسعة من التصاميم الفريدة</p>
-        </div>
-    </section>
-
-    <div class="container mb-5">
-        <div class="row">
-            <div class="col-md-4 mb-4">
-                <div class="card section-card">
-                    <div class="card-body text-center">
-                        <h5 class="card-title">اتصل بنا</h5>
-                        <p class="card-text">لديك استفسار أو تحتاج إلى مساعدة؟ تواصل معنا وسنكون سعداء بمساعدتك.</p>
-                        <a href="/contact" class="btn btn-primary">اذهب إلى صفحة الاتصال</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card section-card">
-                    <div class="card-body text-center">
-                        <h5 class="card-title">الاقتراحات</h5>
-                        <p class="card-text">لديك فكرة أو اقتراح لتحسين متجرنا؟ نرحب بجميع اقتراحاتكم.</p>
-                        <a href="/suggestions" class="btn btn-primary">اذهب إلى صفحة الاقتراحات</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card section-card">
-                    <div class="card-body text-center">
-                        <h5 class="card-title">منتجاتنا</h5>
-                        <p class="card-text">تصفح أحدث تشكيلة التيشيرتات لدينا.</p>
-                        <a href="/products" class="btn btn-primary">عرض المنتجات</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- Main Content -->
+  <div class="main-content p-4">
+    <div class="container">
+      <h1 class="text-center mb-5">أحدث التيشيرتات</h1>
+      
+      <div class="row" id="productsContainer">
+        <!-- Products will be loaded here -->
+      </div>
     </div>
+  </div>
 
-    <footer class="bg-dark text-white py-4">
-        <div class="container text-center">
-            <p>جميع الحقوق محفوظة &copy; 𝐵𝒜𝟩𝐸𝑅 2023</p>
+  <!-- Product Modal -->
+  <div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="productModalTitle">طلب المنتج</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-    </footer>
+        <div class="modal-body">
+          <form id="orderForm">
+            <input type="hidden" id="productId">
+            <div class="row">
+              <div class="col-md-6">
+                <img id="productModalImage" src="" class="img-fluid rounded mb-3 w-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h4 id="productModalPrice" class="text-primary mb-0"></h4>
+                  <span id="deliveryPrice" class="delivery-price text-success"></span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 id="totalPrice" class="text-dark"></h5>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="name" class="form-label">الاسم بالكامل</label>
+                  <input type="text" class="form-control" id="name" required>
+                </div>
+                <div class="mb-3">
+                  <label for="governorate" class="form-label">المحافظة</label>
+                  <select class="form-select" id="governorate" required>
+                    <option value="" selected disabled>اختر المحافظة</option>
+                    <option value="القاهرة">القاهرة (30 جنيه)</option>
+                    <option value="الجيزة">الجيزة (35 جنيه)</option>
+                    <option value="الإسكندرية">الإسكندرية (40 جنيه)</option>
+                    <option value="الدقهلية">الدقهلية (50 جنيه)</option>
+                    <option value="البحيرة">البحيرة (55 جنيه)</option>
+                    <option value="الشرقية">الشرقية (60 جنيه)</option>
+                    <option value="الغربية">الغربية (45 جنيه)</option>
+                    <option value="المنوفية">المنوفية (50 جنيه)</option>
+                    <option value="القليوبية">القليوبية (40 جنيه)</option>
+                    <option value="الفيوم">الفيوم (70 جنيه)</option>
+                    <option value="بني سويف">بني سويف (75 جنيه)</option>
+                    <option value="المنيا">المنيا (80 جنيه)</option>
+                    <option value="أسيوط">أسيوط (85 جنيه)</option>
+                    <option value="سوهاج">سوهاج (90 جنيه)</option>
+                    <option value="قنا">قنا (95 جنيه)</option>
+                    <option value="الأقصر">الأقصر (100 جنيه)</option>
+                    <option value="أسوان">أسوان (110 جنيه)</option>
+                    <option value="البحر الأحمر">البحر الأحمر (120 جنيه)</option>
+                    <option value="شمال سيناء">شمال سيناء (130 جنيه)</option>
+                    <option value="جنوب سيناء">جنوب سيناء (140 جنيه)</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="address" class="form-label">العنوان بالتفصيل</label>
+                  <textarea class="form-control" id="address" rows="2" required></textarea>
+                </div>
+                <div class="mb-3">
+                  <label for="email" class="form-label">البريد الإلكتروني</label>
+                  <input type="email" class="form-control" id="email" required>
+                </div>
+                <div class="mb-3">
+                  <label for="phone" class="form-label">رقم الهاتف</label>
+                  <input type="tel" class="form-control" id="phone" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">المقاس</label>
+                  <div class="row">
+                    <div class="col-6 col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="size" id="sizeS" value="S" checked>
+                        <label class="form-check-label" for="sizeS">S - Small</label>
+                      </div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="size" id="sizeM" value="M">
+                        <label class="form-check-label" for="sizeM">M - Medium</label>
+                      </div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="size" id="sizeL" value="L">
+                        <label class="form-check-label" for="sizeL">L - Large</label>
+                      </div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="size" id="sizeXL" value="XL">
+                        <label class="form-check-label" for="sizeXL">XL - XLarge</label>
+                      </div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="size" id="sizeOS" value="OS">
+                        <label class="form-check-label" for="sizeOS">OS - OverSize</label>
+                      </div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="size" id="sizeCustom" value="Custom">
+                        <label class="form-check-label" for="sizeCustom">مخصص</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mb-3" id="customSizeContainer" style="display: none;">
+                  <label for="customSize" class="form-label">مواصفات التخصيص</label>
+                  <textarea class="form-control" id="customSize" rows="2"></textarea>
+                  <small class="text-muted">سيتم التواصل معك على الواتساب للتأكيد</small>
+                  <a href="#" id="whatsappLink" class="btn btn-success mt-2 w-100">
+                    <i class="fab fa-whatsapp me-2"></i>التواصل على الواتساب
+                  </a>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">طريقة الدفع</label>
+                  <div class="row">
+                    <div class="col-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="payment" id="paymentCash" value="cash" checked>
+                        <label class="form-check-label" for="paymentCash">الدفع عند الاستلام</label>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="payment" id="paymentVodafone" value="vodafone">
+                        <label class="form-check-label" for="paymentVodafone">تحويل فودافون كاش</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mb-3" id="vodafoneDetails" style="display: none;">
+                  <p>الرجاء التحويل على الرقم: <strong id="vodafoneNumber">01274445091</strong></p>
+                  <label for="transactionNumber" class="form-label">رقم التحويل</label>
+                  <input type="text" class="form-control" id="transactionNumber">
+                  <label for="transactionImage" class="form-label mt-2">صورة التحويل</label>
+                  <input type="file" class="form-control" id="transactionImage" accept="image/*">
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+          <button type="button" class="btn btn-primary" id="submitOrder">تأكيد الطلب</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // تحميل المنتجات
+      fetch('/api/products')
+        .then(response => response.json())
+        .then(products => {
+          const container = document.getElementById('productsContainer');
+          products.forEach(product => {
+            const productCard = `
+              <div class="col-md-4 mb-4">
+                <div class="card product-card h-100">
+                  <img src="${product.image}" class="card-img-top" alt="${product.name}">
+                  <div class="card-body">
+                    <h5 class="card-title">${product.name}</h5>
+                    <p class="card-text">${product.description}</p>
+                    <p class="card-text"><strong>السعر: ${product.price} جنيه</strong></p>
+                  </div>
+                  <div class="card-footer bg-transparent">
+                    <button class="btn btn-primary w-100 order-btn" data-id="${product.id}">اطلب الآن</button>
+                  </div>
+                </div>
+              </div>
+            `;
+            container.innerHTML += productCard;
+          });
+
+          // إضافة أحداث لأزرار الطلب
+          document.querySelectorAll('.order-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const productId = this.getAttribute('data-id');
+              fetch(`/api/products/${productId}`)
+                .then(response => response.json())
+                .then(product => {
+                  document.getElementById('productId').value = product.id;
+                  document.getElementById('productModalTitle').textContent = product.name;
+                  document.getElementById('productModalImage').src = product.image;
+                  document.getElementById('productModalPrice').textContent = `${product.price} جنيه`;
+                  updateDeliveryPrice();
+                  
+                  const modal = new bootstrap.Modal(document.getElementById('productModal'));
+                  modal.show();
+                });
+            });
+          });
+        });
+
+      // تحديث سعر التوصيل
+      document.getElementById('governorate').addEventListener('change', updateDeliveryPrice);
+
+      function updateDeliveryPrice() {
+        const governorate = document.getElementById('governorate');
+        if (!governorate.value) return;
+        
+        const priceText = governorate.options[governorate.selectedIndex].text;
+        const deliveryPrice = priceText.match(/\((\d+) جنيه\)/)[1];
+        const productPrice = parseFloat(document.getElementById('productModalPrice').textContent);
+        const totalPrice = productPrice + parseInt(deliveryPrice);
+        
+        document.getElementById('deliveryPrice').textContent = `+${deliveryPrice} جنيه توصيل`;
+        document.getElementById('totalPrice').textContent = `الإجمالي: ${totalPrice} جنيه`;
+      }
+
+      // إظهار/إخفاء حقل التخصيص
+      document.querySelectorAll('input[name="size"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+          document.getElementById('customSizeContainer').style.display = 
+            this.value === 'Custom' ? 'block' : 'none';
+        });
+      });
+
+      // إظهار/إخفاء تفاصيل فودافون كاش
+      document.querySelectorAll('input[name="payment"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+          document.getElementById('vodafoneDetails').style.display = 
+            this.value === 'vodafone' ? 'block' : 'none';
+        });
+      });
+
+      // إرسال الطلب
+      document.getElementById('submitOrder').addEventListener('click', function() {
+        const order = {
+          productId: document.getElementById('productId').value,
+          name: document.getElementById('name').value,
+          governorate: document.getElementById('governorate').value,
+          address: document.getElementById('address').value,
+          email: document.getElementById('email').value,
+          phone: document.getElementById('phone').value,
+          size: document.querySelector('input[name="size"]:checked').value,
+          payment: document.querySelector('input[name="payment"]:checked').value,
+          customSize: document.getElementById('customSize').value || null,
+          transactionNumber: document.getElementById('transactionNumber').value || null
+        };
+
+        fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(order)
+        })
+        .then(response => {
+          if (response.ok) {
+            alert('تم تقديم طلبك بنجاح! سنتواصل معك قريبًا.');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('productModal'));
+            modal.hide();
+            document.getElementById('orderForm').reset();
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>

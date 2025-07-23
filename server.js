@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const session = require('express-session');
 const fs = require('fs');
 const path = require('path');
 const bodyParser = require('body-parser');
@@ -12,13 +13,20 @@ const PORT = process.env.PORT || 3000;
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
+// إعداد الجلسات
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }
+}));
+
 // ملفات JSON
 const DATA_DIR = path.join(__dirname, 'data');
 const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const SUGGESTIONS_FILE = path.join(DATA_DIR, 'suggestions.json');
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 // إنشاء مجلد البيانات إذا لم يكن موجودًا
 if (!fs.existsSync(DATA_DIR)) {
@@ -36,7 +44,6 @@ initFile(PRODUCTS_FILE);
 initFile(ORDERS_FILE);
 initFile(SUGGESTIONS_FILE);
 initFile(MESSAGES_FILE);
-initFile(USERS_FILE, [{ username: 'admin', password: 'admin' }]);
 
 // قراءة البيانات من ملف JSON
 const readData = (filePath) => {
@@ -54,13 +61,7 @@ const authenticate = (req, res, next) => {
         return next();
     }
 
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-        return res.status(401).json({ error: 'غير مصرح به' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    if (token !== 'valid-token') {
+    if (!req.session.isAuthenticated) {
         return res.status(401).json({ error: 'غير مصرح به' });
     }
 
@@ -72,11 +73,10 @@ app.use(authenticate);
 // تسجيل الدخول
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    const users = readData(USERS_FILE);
-    const user = users.find(u => u.username === username && u.password === password);
-
-    if (user) {
-        res.json({ token: 'valid-token' });
+    
+    if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
+        req.session.isAuthenticated = true;
+        res.json({ success: true });
     } else {
         res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
     }
@@ -84,6 +84,7 @@ app.post('/api/login', (req, res) => {
 
 // تسجيل الخروج
 app.post('/api/logout', (req, res) => {
+    req.session.destroy();
     res.json({ message: 'تم تسجيل الخروج بنجاح' });
 });
 
@@ -91,6 +92,15 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/products', (req, res) => {
     const products = readData(PRODUCTS_FILE);
     res.json(products);
+});
+
+app.get('/api/products/:id', (req, res) => {
+    const products = readData(PRODUCTS_FILE);
+    const product = products.find(p => p.id === req.params.id);
+    if (!product) {
+        return res.status(404).json({ error: 'المنتج غير موجود' });
+    }
+    res.json(product);
 });
 
 app.post('/api/products', (req, res) => {
@@ -221,18 +231,27 @@ app.post('/api/send-email', async (req, res) => {
     }
 });
 
-// Route للصفحة الرئيسية
+// Routes للصفحات
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Route لتسجيل الدخول
-app.get('/login.html', (req, res) => {
+app.get('/contact', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'contact.html'));
+});
+
+app.get('/suggestions', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'suggestions.html'));
+});
+
+app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Route للوحة التحكم
-app.get('/dashboard.html', (req, res) => {
+app.get('/dashboard', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.redirect('/login');
+    }
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
