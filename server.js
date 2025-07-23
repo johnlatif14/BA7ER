@@ -1,468 +1,242 @@
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
-const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
-const bcrypt = require('bcrypt');
+const path = require('path');
+const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const cors = require('cors');
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
-
-// مسار ملف قاعدة البيانات
-const DB_PATH = path.join(__dirname, 'database.json');
-
-// تهيئة قاعدة البيانات أو تحميلها إذا كانت موجودة
-let db = {
-  users: [
-    {
-      id: 1,
-      username: 'ba7er',
-      password: bcrypt.hashSync('Fahd', 10),
-      role: 'admin'
-    }
-  ],
-  products: [],
-  orders: [],
-  contacts: [],
-  suggestions: []
-};
-
-// تحميل البيانات من الملف إذا كان موجوداً
-if (fs.existsSync(DB_PATH)) {
-  try {
-    const data = fs.readFileSync(DB_PATH, 'utf8');
-    db = JSON.parse(data);
-    console.log('تم تحميل قاعدة البيانات بنجاح');
-  } catch (err) {
-    console.error('خطأ في قراءة ملف قاعدة البيانات:', err);
-  }
-}
-
-// دالة لحفظ البيانات في الملف
-function saveDatabase() {
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
-    console.log('تم حفظ قاعدة البيانات');
-  } catch (err) {
-    console.error('خطأ في حفظ قاعدة البيانات:', err);
-  }
-}
-
-// SMTP Configuration
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER || 'clanking957@gmail.com',
-    pass: process.env.SMTP_PASS || 'ooag vozw olmr xwdt'
-  }
-});
-
-// Error handling setup
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-});
+const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static('uploads'));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'a70fd3493122c0bbacb3508b914ec265c05e79d4a1408cad2645d553ff8376eb',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000
-  }
-}));
-app.use(helmet());
-app.use(cors({
-  origin: ['http://localhost:3000', 'https://ba7er-production.up.railway.app'],
-  credentials: true
-}));
+app.use(bodyParser.json());
+app.use(express.static('public'));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
-});
-app.use(limiter);
+// ملفات JSON
+const DATA_DIR = path.join(__dirname, 'data');
+const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json');
+const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const SUGGESTIONS_FILE = path.join(DATA_DIR, 'suggestions.json');
+const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
-// Ensure uploads directory exists
-if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads');
+// إنشاء مجلد البيانات إذا لم يكن موجودًا
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR);
 }
 
-// Authentication middleware
-const isAuthenticated = (req, res, next) => {
-  if (req.session.user) {
-    return next();
-  }
-  res.status(401).json({ success: false, message: 'غير مصرح بالدخول' });
+// إنشاء ملفات JSON إذا لم تكن موجودة
+const initFile = (filePath, initialData = []) => {
+    if (!fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, JSON.stringify(initialData, null, 2));
+    }
 };
 
-// CSRF protection middleware
-const csrfProtection = (req, res, next) => {
-  res.locals.csrfToken = req.session.csrfToken = Math.random().toString(36).substring(2);
-  next();
+initFile(PRODUCTS_FILE);
+initFile(ORDERS_FILE);
+initFile(SUGGESTIONS_FILE);
+initFile(MESSAGES_FILE);
+initFile(USERS_FILE, [{ username: 'admin', password: 'admin' }]);
+
+// قراءة البيانات من ملف JSON
+const readData = (filePath) => {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
 };
 
-// Routes
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// كتابة البيانات إلى ملف JSON
+const writeData = (filePath, data) => {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+};
 
-app.get('/contact.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'contact.html'));
-});
+// Middleware للتحقق من المصادقة
+const authenticate = (req, res, next) => {
+    if (req.path === '/api/login' || req.path.startsWith('/public') || req.path === '/') {
+        return next();
+    }
 
-app.get('/suggestions.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'suggestions.html'));
-});
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).json({ error: 'غير مصرح به' });
+    }
 
-app.get('/login.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
+    const token = authHeader.split(' ')[1];
+    if (token !== 'valid-token') {
+        return res.status(401).json({ error: 'غير مصرح به' });
+    }
 
-app.get('/dashboard.html', isAuthenticated, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
-});
+    next();
+};
 
-// API Routes
-app.get('/api/csrf-token', csrfProtection, (req, res) => {
-  res.json({ csrfToken: res.locals.csrfToken });
-});
+app.use(authenticate);
 
-app.post('/api/login', async (req, res, next) => {
-  try {
+// تسجيل الدخول
+app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    const user = db.users.find(u => u.username === username);
-    
-    if (user && bcrypt.compareSync(password, user.password)) {
-      req.session.user = user;
-      res.json({ success: true, redirect: '/dashboard.html' });
+    const users = readData(USERS_FILE);
+    const user = users.find(u => u.username === username && u.password === password);
+
+    if (user) {
+        res.json({ token: 'valid-token' });
     } else {
-      res.status(401).json({ success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+        res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
     }
-  } catch (err) {
-    next(err);
-  }
 });
 
-app.post('/api/logout', isAuthenticated, (req, res) => {
-  req.session.destroy();
-  res.json({ success: true, redirect: '/login.html' });
+// تسجيل الخروج
+app.post('/api/logout', (req, res) => {
+    res.json({ message: 'تم تسجيل الخروج بنجاح' });
 });
 
-// Products API
-app.get('/api/products', async (req, res, next) => {
-  try {
-    res.json(db.products);
-  } catch (err) {
-    next(err);
-  }
+// المنتجات
+app.get('/api/products', (req, res) => {
+    const products = readData(PRODUCTS_FILE);
+    res.json(products);
 });
 
-app.post('/api/products', isAuthenticated, upload.single('image'), async (req, res, next) => {
-  try {
-    const { name, price, sizes, stock } = req.body;
-    
-    if (!name || !price || !sizes || !stock) {
-      return res.status(400).json({ success: false, message: 'جميع الحقول مطلوبة' });
-    }
-    
+app.post('/api/products', (req, res) => {
+    const products = readData(PRODUCTS_FILE);
     const newProduct = {
-      id: Date.now(),
-      name,
-      price: parseFloat(price),
-      sizes: sizes.split(',').map(s => s.trim()),
-      stock: parseInt(stock),
-      image: req.file ? req.file.filename : 'default-product.jpg'
+        id: Date.now().toString(),
+        ...req.body,
+        createdAt: new Date().toISOString()
     };
-    
-    db.products.push(newProduct);
-    saveDatabase(); // حفظ التغييرات في الملف
-    res.json({ success: true, product: newProduct });
-  } catch (err) {
-    next(err);
-  }
+    products.push(newProduct);
+    writeData(PRODUCTS_FILE, products);
+    res.status(201).json(newProduct);
 });
 
-// Orders API
-app.get('/api/orders', isAuthenticated, async (req, res, next) => {
-  try {
-    const { status } = req.query;
-    let orders = db.orders;
-    
-    if (status && status !== 'all') {
-      orders = orders.filter(order => order.status === status);
+app.put('/api/products/:id', (req, res) => {
+    const products = readData(PRODUCTS_FILE);
+    const index = products.findIndex(p => p.id === req.params.id);
+    if (index === -1) {
+        return res.status(404).json({ error: 'المنتج غير موجود' });
     }
-    
+    products[index] = { ...products[index], ...req.body };
+    writeData(PRODUCTS_FILE, products);
+    res.json(products[index]);
+});
+
+app.delete('/api/products/:id', (req, res) => {
+    const products = readData(PRODUCTS_FILE);
+    const filteredProducts = products.filter(p => p.id !== req.params.id);
+    writeData(PRODUCTS_FILE, filteredProducts);
+    res.json({ message: 'تم حذف المنتج بنجاح' });
+});
+
+// الطلبات
+app.get('/api/orders', (req, res) => {
+    const orders = readData(ORDERS_FILE);
     res.json(orders);
-  } catch (err) {
-    next(err);
-  }
 });
 
-app.post('/api/orders', upload.fields([{ name: 'transactionImage', maxCount: 1 }]), async (req, res, next) => {
-  try {
-    const {
-      productId,
-      name,
-      address,
-      email,
-      phone,
-      size,
-      payment,
-      customSize,
-      transactionNumber
-    } = req.body;
-    
-    const product = db.products.find(p => p.id == productId);
-    if (!product) {
-      return res.status(404).json({ success: false, message: 'المنتج غير موجود' });
-    }
-    
+app.post('/api/orders', (req, res) => {
+    const orders = readData(ORDERS_FILE);
     const newOrder = {
-      id: Date.now(),
-      productId,
-      customerName: name,
-      customerAddress: address,
-      customerEmail: email,
-      customerPhone: phone,
-      size,
-      customSize: customSize || null,
-      paymentMethod: payment,
-      transactionNumber: payment === 'vodafone' ? transactionNumber : null,
-      transactionImage: req.files?.transactionImage ? req.files.transactionImage[0].filename : null,
-      productName: product.name,
-      productPrice: product.price,
-      status: 'pending',
-      createdAt: new Date().toISOString()
+        id: Date.now().toString(),
+        ...req.body,
+        status: 'قيد المعالجة',
+        date: new Date().toISOString()
     };
-    
-    db.orders.push(newOrder);
-    saveDatabase(); // حفظ التغييرات في الملف
-    
-    const mailOptions = {
-      from: process.env.SMTP_USER || 'clanking957@gmail.com',
-      to: process.env.ADMIN_EMAIL || 'clanking957@gmail.com',
-      subject: 'طلب جديد - متجر 𝐵𝒜𝟩𝐸𝑅',
-      text: `تم استلام طلب جديد من ${name}\n\nالمنتج: ${product.name}\nالسعر: ${product.price} جنيه\nطريقة الدفع: ${payment === 'cash' ? 'الدفع عند الاستلام' : 'فودافون كاش'}`
-    };
-    
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true, order: newOrder });
-  } catch (err) {
-    next(err);
-  }
+    orders.push(newOrder);
+    writeData(ORDERS_FILE, orders);
+    res.status(201).json(newOrder);
 });
 
-// Contact API
-app.post('/api/contact', async (req, res, next) => {
-  try {
-    const { name, email, subject, message } = req.body;
-    
-    if (!name || !email || !subject || !message) {
-      return res.status(400).json({ success: false, message: 'جميع الحقول مطلوبة' });
-    }
-    
-    const newContact = {
-      id: Date.now(),
-      name,
-      email,
-      subject,
-      message,
-      createdAt: new Date().toISOString()
-    };
-    
-    db.contacts.push(newContact);
-    saveDatabase(); // حفظ التغييرات في الملف
-    
-    const mailOptions = {
-      from: process.env.SMTP_USER || 'clanking957@gmail.com',
-      to: process.env.ADMIN_EMAIL || 'clanking957@gmail.com',
-      subject: `رسالة جديدة: ${subject}`,
-      text: `اسم المرسل: ${name}\nالبريد الإلكتروني: ${email}\n\nالرسالة:\n${message}`
-    };
-    
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true, contact: newContact });
-  } catch (err) {
-    next(err);
-  }
+// الاقتراحات
+app.get('/api/suggestions', (req, res) => {
+    const suggestions = readData(SUGGESTIONS_FILE);
+    res.json(suggestions);
 });
 
-// Suggestions API
-app.post('/api/suggestions', upload.single('design'), async (req, res, next) => {
-  try {
-    const { name, email, suggestion } = req.body;
-    
-    if (!name || !email || !suggestion) {
-      return res.status(400).json({ success: false, message: 'جميع الحقول مطلوبة' });
-    }
-    
+app.post('/api/suggestions', (req, res) => {
+    const suggestions = readData(SUGGESTIONS_FILE);
     const newSuggestion = {
-      id: Date.now(),
-      name,
-      email,
-      suggestion,
-      design: req.file ? req.file.filename : null,
-      status: 'pending',
-      createdAt: new Date().toISOString()
+        id: Date.now().toString(),
+        ...req.body,
+        date: new Date().toISOString()
     };
-    
-    db.suggestions.push(newSuggestion);
-    saveDatabase(); // حفظ التغييرات في الملف
-    res.json({ success: true, suggestion: newSuggestion });
-  } catch (err) {
-    next(err);
-  }
+    suggestions.push(newSuggestion);
+    writeData(SUGGESTIONS_FILE, suggestions);
+    res.status(201).json(newSuggestion);
 });
 
-// Email API
-app.post('/api/send-email', isAuthenticated, async (req, res, next) => {
-  try {
-    const { to, subject, text } = req.body;
-    
-    if (!to || !subject || !text) {
-      return res.status(400).json({ success: false, message: 'جميع الحقول مطلوبة' });
-    }
-    
-    const mailOptions = {
-      from: process.env.SMTP_USER || 'clanking957@gmail.com',
-      to,
-      subject,
-      text
+app.delete('/api/suggestions/:id', (req, res) => {
+    const suggestions = readData(SUGGESTIONS_FILE);
+    const filteredSuggestions = suggestions.filter(s => s.id !== req.params.id);
+    writeData(SUGGESTIONS_FILE, filteredSuggestions);
+    res.json({ message: 'تم حذف الاقتراح بنجاح' });
+});
+
+// رسائل التواصل
+app.get('/api/messages', (req, res) => {
+    const messages = readData(MESSAGES_FILE);
+    res.json(messages);
+});
+
+app.post('/api/messages', (req, res) => {
+    const messages = readData(MESSAGES_FILE);
+    const newMessage = {
+        id: Date.now().toString(),
+        ...req.body,
+        date: new Date().toISOString()
     };
-    
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true, message: 'تم إرسال البريد الإلكتروني بنجاح' });
-  } catch (err) {
-    next(err);
-  }
+    messages.push(newMessage);
+    writeData(MESSAGES_FILE, messages);
+    res.status(201).json(newMessage);
 });
 
-// Dashboard Stats API
-app.get('/api/stats', isAuthenticated, async (req, res, next) => {
-  try {
-    const stats = {
-      totalOrders: db.orders.length,
-      pendingOrders: db.orders.filter(o => o.status === 'pending').length,
-      topProducts: db.products
-        .map(p => ({
-          name: p.name,
-          sales: db.orders.filter(o => o.productId === p.id).length
-        }))
-        .sort((a, b) => b.sales - a.sales)
-        .slice(0, 5),
-      salesSummary: {
-        totalSales: db.orders.reduce((sum, o) => sum + o.productPrice, 0),
-        totalOrders: db.orders.length,
-        averageOrderValue: db.orders.length > 0 
-          ? (db.orders.reduce((sum, o) => sum + o.productPrice, 0) / db.orders.length)
-          : 0
-      }
-    };
-    res.json(stats);
-  } catch (err) {
-    next(err);
-  }
+app.delete('/api/messages/:id', (req, res) => {
+    const messages = readData(MESSAGES_FILE);
+    const filteredMessages = messages.filter(m => m.id !== req.params.id);
+    writeData(MESSAGES_FILE, filteredMessages);
+    res.json({ message: 'تم حذف الرسالة بنجاح' });
 });
 
-// Export Orders API
-app.get('/api/orders/export', isAuthenticated, async (req, res, next) => {
-  try {
-    const { status } = req.query;
-    let orders = db.orders;
-    
-    if (status && status !== 'all') {
-      orders = orders.filter(order => order.status === status);
+// إرسال البريد
+app.post('/api/send-email', async (req, res) => {
+    const { to, subject, message } = req.body;
+
+    const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+        }
+    });
+
+    try {
+        await transporter.sendMail({
+            from: `"𝐵𝒜𝟩𝐸𝑅 متجر التيشيرتات" <${process.env.SMTP_USER}>`,
+            to,
+            subject,
+            text: message,
+            html: `<p>${message}</p>`
+        });
+        res.json({ message: 'تم إرسال البريد بنجاح' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'فشل في إرسال البريد' });
     }
-    
-    const csv = [
-      ['رقم الطلب', 'العميل', 'المنتج', 'السعر', 'الحالة', 'التاريخ'],
-      ...orders.map(o => [
-        o.id,
-        o.customerName,
-        o.productName,
-        o.productPrice,
-        o.status,
-        new Date(o.createdAt).toLocaleDateString()
-      ])
-    ].map(row => row.join(',')).join('\n');
-    
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=orders.csv');
-    res.send(csv);
-  } catch (err) {
-    next(err);
-  }
 });
 
-// Update Order Status API
-app.put('/api/orders/:id/status', isAuthenticated, async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    
-    const order = db.orders.find(o => o.id == id);
-    if (!order) {
-      return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
-    }
-    
-    order.status = status;
-    saveDatabase(); // حفظ التغييرات في الملف
-    res.json({ success: true, order });
-  } catch (err) {
-    next(err);
-  }
+// Route للصفحة الرئيسية
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Update Suggestion Status API
-app.put('/api/suggestions/:id/status', isAuthenticated, async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    
-    const suggestion = db.suggestions.find(s => s.id == id);
-    if (!suggestion) {
-      return res.status(404).json({ success: false, message: 'الاقتراح غير موجود' });
-    }
-    
-    suggestion.status = status;
-    saveDatabase(); // حفظ التغييرات في الملف
-    res.json({ success: true, suggestion });
-  } catch (err) {
-    next(err);
-  }
+// Route لتسجيل الدخول
+app.get('/login.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    success: false, 
-    message: 'حدث خطأ في الخادم',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
+// Route للوحة التحكم
+app.get('/dashboard.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
+// بدء الخادم
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+    console.log(`الخادم يعمل على http://localhost:${PORT}`);
 });

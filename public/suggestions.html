@@ -1,126 +1,105 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>الاقتراحات - متجر 𝐵𝒜𝟩𝐸𝑅</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    .sidebar {
-      min-height: 100vh;
-      position: fixed;
-      width: 250px;
-    }
-    .main-content {
-      margin-right: 250px;
-    }
-    @media (max-width: 768px) {
-      .sidebar {
-        width: 100%;
-        position: relative;
-      }
-      .main-content {
-        margin-right: 0;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>𝐵𝒜𝟩𝐸𝑅 - اقتراحات</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .logo {
+            font-family: 'Arial', sans-serif;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .suggestions-section {
+            padding: 80px 0;
+        }
+    </style>
 </head>
 <body>
-  <!-- Sidebar -->
-  <div class="sidebar bg-dark text-white p-3">
-    <h2 class="text-center mb-4">𝐵𝒜𝟩𝐸𝑅</h2>
-    <ul class="nav flex-column">
-      <li class="nav-item">
-        <a class="nav-link" href="/"><i class="fas fa-home me-2"></i>الصفحة الرئيسية</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="/contact.html"><i class="fas fa-envelope me-2"></i>اتصل بنا</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link active" href="/suggestions.html"><i class="fas fa-lightbulb me-2"></i>الاقتراحات</a>
-      </li>
-    </ul>
-  </div>
-
-  <!-- Main Content -->
-  <div class="main-content p-4">
-    <div class="container">
-      <h1 class="text-center mb-5">شاركنا اقتراحاتك</h1>
-      
-      <div class="row justify-content-center">
-        <div class="col-md-8">
-          <form id="suggestionForm" class="needs-validation" novalidate>
-            <div class="mb-3">
-              <label for="name" class="form-label">الاسم</label>
-              <input type="text" class="form-control" id="name" required>
-              <div class="invalid-feedback">الرجاء إدخال اسمك</div>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand logo" href="/">𝐵𝒜𝟩𝐸𝑅</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">الصفحة الرئيسية</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/contact">اتصل بنا</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/suggestions">اقتراحات</a>
+                    </li>
+                </ul>
             </div>
-            <div class="mb-3">
-              <label for="email" class="form-label">البريد الإلكتروني</label>
-              <input type="email" class="form-control" id="email" required>
-              <div class="invalid-feedback">الرجاء إدخال بريد إلكتروني صحيح</div>
-            </div>
-            <div class="mb-3">
-              <label for="suggestion" class="form-label">اقتراحك</label>
-              <textarea class="form-control" id="suggestion" rows="5" required></textarea>
-              <div class="invalid-feedback">الرجاء إدخال اقتراحك</div>
-            </div>
-            <div class="mb-3">
-              <label for="design" class="form-label">تصميم مقترح (اختياري)</label>
-              <input type="file" class="form-control" id="design" accept="image/*">
-            </div>
-            <button type="submit" class="btn btn-primary">إرسال الاقتراح</button>
-          </form>
         </div>
-      </div>
-    </div>
-  </div>
+    </nav>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('suggestionForm');
-      
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        if (!form.checkValidity()) {
-          e.stopPropagation();
-          form.classList.add('was-validated');
-          return;
-        }
-        
-        const formData = new FormData();
-        formData.append('name', document.getElementById('name').value);
-        formData.append('email', document.getElementById('email').value);
-        formData.append('suggestion', document.getElementById('suggestion').value);
-        
-        const designFile = document.getElementById('design').files[0];
-        if (designFile) {
-          formData.append('design', designFile);
-        }
-        
-        try {
-          const response = await fetch('/api/suggestions', {
-            method: 'POST',
-            body: formData
-          });
-          
-          const result = await response.json();
-          if (result.success) {
-            alert('شكراً لك على اقتراحك! سنقوم بدراسته بعناية.');
-            form.reset();
-            form.classList.remove('was-validated');
-          } else {
-            alert('حدث خطأ أثناء إرسال الاقتراح: ' + result.message);
-          }
-        } catch (error) {
-          alert('حدث خطأ في الاتصال بالخادم.');
-          console.error(error);
-        }
-      });
-    });
-  </script>
+    <section class="suggestions-section">
+        <div class="container">
+            <h2 class="text-center mb-4">اقتراحات</h2>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <form id="suggestion-form">
+                        <div class="mb-3">
+                            <label for="suggestion-name" class="form-label">الاسم</label>
+                            <input type="text" class="form-control" id="suggestion-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="suggestion-email" class="form-label">البريد الإلكتروني</label>
+                            <input type="email" class="form-control" id="suggestion-email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="suggestion-text" class="form-label">اقتراحك</label>
+                            <textarea class="form-control" id="suggestion-text" rows="5" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">إرسال الاقتراح</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-dark text-white py-4">
+        <div class="container text-center">
+            <p>جميع الحقوق محفوظة &copy; 𝐵𝒜𝟩𝐸𝑅 2023</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('suggestion-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const suggestion = {
+                name: document.getElementById('suggestion-name').value,
+                email: document.getElementById('suggestion-email').value,
+                suggestion: document.getElementById('suggestion-text').value,
+                date: new Date().toISOString()
+            };
+
+            fetch('/api/suggestions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(suggestion)
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('تم إرسال اقتراحك بنجاح!');
+                    document.getElementById('suggestion-form').reset();
+                }
+            });
+        });
+    </script>
 </body>
 </html>
